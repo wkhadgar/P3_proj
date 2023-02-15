@@ -1,11 +1,6 @@
 from datetime import datetime
 import random
 
-
-def generate_id():
-    return random.randint(0, 10000)
-
-
 class Account:
     def __init__(self, wallet_amount: float):
         """
@@ -17,6 +12,8 @@ class Account:
 
         self.balance = wallet_amount
         self.score = 100  # Pontuação da conta.
+        self.max_day_draw = 100_000
+        self.max_night_draw = self.max_day_draw / 2
 
     def deposit(self, amount):
         """
@@ -100,7 +97,7 @@ class Transaction:
         """
 
         self.value = value
-        self._id = generate_id()
+        self._id = 0
         self.succeded = False
 
         self.origin_person = origin_id
@@ -158,6 +155,7 @@ class System:
         Os sistemas armazenam as pessoas e os bancos, além de manusear as operações que as envolvem.
         """
 
+        self.transactions = {}
         self.banks = {}
         self.people = {}
 
@@ -239,7 +237,7 @@ class System:
         drawed = 0
         print("________________________________________________________")
         try:
-            print(f"{self.people[cpf].name} Realizou uma operação de saque em {bank}")
+            print(f"{self.people[cpf].name} realizou uma operação de saque em {bank}")
             done = self.people[cpf].accounts[bank].draw(value)
             if done:
                 self.banks[bank].vault -= value
@@ -250,6 +248,15 @@ class System:
             print("O banco ou a pessoa não existe.\n")
         print("________________________________________________________\n")
         return drawed
+
+    def generate_transaction_id(self, transaction: Transaction):
+        new_id = random.randint(0, 999_999_999)
+
+        while new_id in self.transactions:
+            new_id = random.randint(0, 999_999_999)
+
+        self.transactions[new_id] = transaction
+        return new_id
 
     def make_transfer(self, *, value: float, origin_id: int, origin_bank: str, target_id: int, target_bank: str):
         """
@@ -267,10 +274,11 @@ class System:
 
         now = datetime.now()
         new_transaction.date = now.strftime("%d/%m/%Y %H:%M:%S")
+        new_transaction._id = self.generate_transaction_id(new_transaction)
 
         try:
             print(
-                f"O sistema realizou uma transferência: {self.people[origin_id].name} em {origin_bank} para {self.people[target_id].name} em {target_bank}\n")
+                f"O sistema automatizou a transferência: {self.people[origin_id].name} em {origin_bank} para {self.people[target_id].name} em {target_bank}\n")
             done = self.sys_draw(cpf=origin_id, bank=origin_bank, value=value)
             if done != 0:
                 new_transaction.succeded = True
