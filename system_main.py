@@ -30,16 +30,33 @@ class Account:
         print(f"Depositado R$ {amount:.2f} na conta, o novo total é de R${self.balance:.2f}")
         return self.balance
 
-    def draw(self, amount):
+    def draw(self, amount: int, *, has_time_limit=False):
         """
         Tenta sacar da conta o valor dado.
 
         :param amount: Valor a ser sacado.
+        :param has_time_limit: Opcional, se verdadeiro limita o saque por horário.
         :return: True se o valor pode ser retirado, False se não.
         """
 
         curr = self.balance - amount
         if curr >= 0:
+
+            now = datetime.now().time()
+            limit_start_time = datetime.strptime("18:00", "%H:%M").time()
+            limit_end_time = datetime.strptime("4:00", "%H:%M").time()
+
+            if has_time_limit:
+                if ((now < limit_end_time) or (now > limit_start_time)) and (amount > self.max_night_draw):
+                    print(f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
+                    return False
+
+                if amount > self.max_day_draw:
+                    print(
+                        f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
+                        f"inferior ao valor desejado.")
+                    return False
+
             self.balance = curr
             self.score -= amount * 0.1
 
@@ -111,7 +128,7 @@ class Transaction:
 
 
 class Bank:
-    def __init__(self, name, *, fee=0):
+    def __init__(self, name, *, fee: float = 0):
         """
         Descreve um banco.
 
@@ -164,17 +181,32 @@ class System:
         bank_amount = len(self.banks)
         people_amount = len(self.people)
         print(
-            f"\nO sistema tem {people_amount} {'pessoa cadastrada' if people_amount == 1 else 'pessoas cadastradas'} e {bank_amount}"
-            f" {'banco cadrastado' if bank_amount == 1 else 'bancos cadrastados'}.\n")
+            f"\nO sistema tem {people_amount} {'pessoa cadastrada' if people_amount == 1 else 'pessoas cadastradas'} e "
+            f"{bank_amount} {'banco cadrastado' if bank_amount == 1 else 'bancos cadrastados'}.\n")
 
-    def create_bank(self, *, name: str):
+        print("Pessoas:")
+        for p in list(self.people.values()):
+            try:
+                print(f"\t {p.name}.")
+            except:
+                continue
+
+        print("\nBancos:")
+        for b in list(self.banks.values()):
+            try:
+                print(f"\t {b.name}.")
+            except:
+                continue
+
+    def create_bank(self, *, name: str, bank_fee: float):
         """
         Cadastra um banco no sistema.
 
         :param name: Nome do banco.
         """
 
-        self.banks[name] = Bank(name)
+        self.banks[name] = Bank(name, fee=bank_fee)
+        print("Banco criado com sucesso.")
 
     def remove_bank(self, *, name: str):
         if self.banks[name].clients_ammount == 0:
@@ -192,6 +224,7 @@ class System:
         """
 
         self.people[cpf] = Person(name, cpf)
+        print("Pessoa cadastrada com sucesso.")
 
     def remove_person(self, cpf: int):
         try:
@@ -204,6 +237,12 @@ class System:
         except ValueError:
             print(f"A pessoa com o identificador {cpf} não foi encontrada no sistema.")
 
+    def get_person_data(self, cpf: int):
+        print(f"\nDados da pessoa '{self.people[cpf].name}':")
+        for acc in list(self.people[cpf].accounts.keys()):
+            print(f"\tValor no banco {acc} R${self.people[cpf].accounts[acc].balance:.2f}")
+        print("\n")
+
     def sys_open_account(self, owner_id: int, bank: str):
         """
         Cria uma conta para a pessoa indicada, no banco dado.
@@ -213,6 +252,7 @@ class System:
         """
 
         self.banks[bank].open_account(self.people[owner_id])
+        print("A conta foi criada com sucesso!")
 
     def sys_deposit(self, *, cpf: int, bank: str, value: float):
         """
@@ -227,7 +267,7 @@ class System:
         total = 0
         print("________________________________________________________")
         try:
-            print(f"{self.people[cpf].name} Realizou uma operação de depósito em {bank}")
+            print(f"{self.people[cpf].name} realizou uma operação de depósito em {bank}")
             total = self.people[cpf].accounts[bank].deposit(value)
             self.banks[bank].vault += value
         except ValueError:
@@ -236,13 +276,14 @@ class System:
 
         return total
 
-    def sys_draw(self, *, cpf: int, bank: str, value: float):
+    def sys_draw(self, *, cpf: int, bank: str, value: float, has_time_limit=False):
         """
         Tenta sacar o valor dado da conta da pessoa indicada, em seu respectivo banco.
 
         :param cpf: Identificador único da pessoa.
         :param bank: Banco responsável pela conta da pessoa.
         :param value: Valor do saque.
+        :param has_time_limit: Opcional, se verdadeiro o saque usará os limites da conta.
         :return: Valor retirado, 0 se não foi possível sacar.
         """
 
@@ -250,7 +291,7 @@ class System:
         print("________________________________________________________")
         try:
             print(f"{self.people[cpf].name} realizou uma operação de saque em {bank}")
-            done = self.people[cpf].accounts[bank].draw(value)
+            done = self.people[cpf].accounts[bank].draw(value, has_time_limit=has_time_limit)
             if done:
                 self.banks[bank].vault -= value
                 drawed = value
@@ -270,7 +311,8 @@ class System:
         self.transactions[new_id] = transaction
         return new_id
 
-    def make_transfer(self, *, value: float, origin_id: int, origin_bank: str, target_id: int, target_bank: str):
+    def make_transfer(self, *, value: float, origin_id: int, origin_bank: str, target_id: int, target_bank: str,
+                      is_time_limited=False):
         """
         Realiza uma transferência no valor dado, entre duas pessoas, em seus respectivos bancos.
 
@@ -279,6 +321,7 @@ class System:
         :param origin_bank: Nome do banco responsável pela conta da pessoa a transferir.
         :param target_id: Idenficador único da pessoa a receberr o dinheiro.
         :param target_bank: Nome do banco responsável pela conta da pessoa a receber.
+        :param is_time_limited: Opcional, se verdadeiro a transferencia usará os limites da conta.
         :return: A transação realizada.
         """
 
@@ -289,12 +332,14 @@ class System:
         new_transaction._id = self.generate_transaction_id(new_transaction)
 
         try:
+            taxed_value = value + self.banks[origin_bank].fee * value if origin_bank != target_bank else value
             print(
-                f"O sistema automatizou a transferência: {self.people[origin_id].name} em {origin_bank} para {self.people[target_id].name} em {target_bank}\n")
-            done = self.sys_draw(cpf=origin_id, bank=origin_bank, value=value)
+                f"\n\nO sistema automatizou a transferência: {self.people[origin_id].name} em {origin_bank} para "
+                f"{self.people[target_id].name} em {target_bank}\n")
+            done = self.sys_draw(cpf=origin_id, bank=origin_bank, value=taxed_value, has_time_limit=is_time_limited)
             if done != 0:
                 new_transaction.succeded = True
-                self.banks[origin_bank].vault -= value
+                self.banks[origin_bank].vault += taxed_value - value
                 self.sys_deposit(cpf=target_id, bank=target_bank, value=value)
             else:
                 pass
@@ -306,8 +351,12 @@ class System:
 
 sys = System()
 
-main_bank = input("Digite o nome do banco a ser criado: ").strip()
-sys.create_bank(name=main_bank)
+main_bank = input("Digite o nome do primeiro banco a ser criado: ").strip()
+other_bank = input("Digite o nome do segundo banco a ser criado: ").strip()
+fee = 0.01
+
+sys.create_bank(name=main_bank, bank_fee=fee)
+sys.create_bank(name=other_bank, bank_fee=fee)
 
 giver_name = input("Digite o nome da pessoa que vai realizar a transferencia: ")
 giver_cpf = int(input("Digite o CPF dessa pessoa: "))
@@ -322,15 +371,106 @@ sys.show_status()
 
 sys.sys_open_account(giver_cpf, main_bank)
 sys.sys_open_account(receiver_cpf, main_bank)
+sys.sys_open_account(receiver_cpf, other_bank)
 
 sys.sys_deposit(cpf=giver_cpf, bank=main_bank,
-                value=float(input(f"Qual valor que será depositado inicialmente na conta do {giver_name}?\n-> R$ "))
-                )
-sys.make_transfer(value=float(input(f"Qual valor que será transferido para o {receiver_name}?\n-> R$ ")),
+                value=float(input(f"Qual valor que será depositado inicialmente na conta do {giver_name}?\n"
+                                  f"-> R$ ")))
+
+sys.make_transfer(value=float(input(f"Qual valor que será transferido para o {receiver_name} (mesmo banco)?\n"
+                                    f"-> R$ ")),
                   origin_id=giver_cpf, origin_bank=main_bank, target_id=receiver_cpf, target_bank=main_bank)
+
+sys.make_transfer(value=float(input(f"Qual valor que será transferido para o {receiver_name} (bancos diferentes) ?\n"
+                                    f"-> R$ ")),
+                  origin_id=giver_cpf, origin_bank=main_bank, target_id=receiver_cpf, target_bank=other_bank)
+
+sys.get_person_data(receiver_cpf)
+sys.get_person_data(giver_cpf)
 
 sys.remove_person(giver_cpf)
 sys.remove_person(receiver_cpf)
 sys.remove_bank(name=main_bank)
 
 sys.show_status()
+
+run = True
+current_state = 'menu'
+while run:
+    if current_state == 'menu':
+        print("\n\n\nBem-vindo ao SUB, o que deseja fazer?")
+        print("[0] - Encerrar.")
+        print("[1] - Cadastrar nova pessoa.")
+        print("[2] - Remover pessoa existente.")
+        print("[3] - Cadastrar novo banco.")
+        print("[4] - Remover banco existente.")
+        print("[5] - Criar conta para pessoa cadastrada.")
+        print("[6] - Realizar depósito em conta.")
+        print("[7] - Realizar saque de conta.")
+        print("[8] - Realizar transferência automatizada entre pessoas.")
+        print("[9] - Mostrar status do sistema.")
+        print("[10] - Mostrar dados de uma pessoa.")
+
+        option = int(input("-> "))
+
+        if option == 0:
+            run = False
+            break
+        elif option == 1:
+            name = input("Digite o nome da pessoa: ")
+            cpf = int(input("Digite o CPF dessa pessoa: "))
+            sys.create_person(name=name, cpf=cpf)
+        elif option == 2:
+            cpf = int(input("Digite o CPF dessa pessoa: "))
+            sys.remove_person(giver_cpf)
+        elif option == 3:
+            bank = input("Digite o nome do banco a ser criado: ").strip()
+            fee = float(int(input("Qual a taxa de transferência externa desse banco, em %: ")) / 100)
+
+            sys.create_bank(name=bank, bank_fee=fee)
+        elif option == 4:
+            bank = input("Digite o nome do banco a ser removido: ").strip()
+            sys.remove_bank(name=bank)
+        elif option == 5:
+            cpf = int(input("Digite o CPF da pessoa que abrirá a conta: "))
+            bank = input("Digite o nome do banco onde a conta será criada: ").strip()
+            sys.sys_open_account(cpf, bank)
+        elif option == 6:
+            cpf = int(input("Digite o CPF dessa pessoa: "))
+            bank = input("Digite o banco no qual deve ser feito o depósito:").strip()
+            sys.sys_deposit(cpf=cpf, bank=bank,
+                            value=float(input(f"Qual valor que será depositado na conta do {sys.people[cpf].name}?\n"
+                                              f"-> R$ ")))
+        elif option == 7:
+            cpf = int(input("Digite o CPF dessa pessoa: "))
+            bank = input("Digite o banco no qual deve ser feito o saque:").strip()
+            do_limit = True if input("O saque deve ser limitado?\n"
+                                     "[s] - Sim\n"
+                                     "[n] - Não\n"
+                                     "-> ") == 's' else False
+            sys.sys_draw(cpf=cpf, bank=bank,
+                         value=float(input(f"Qual valor que será reitrado da conta do {sys.people[cpf].name}?\n"
+                                           f"-> R$ ")), has_time_limit=do_limit)
+        elif option == 8:
+            giver_cpf = int(input("Digite o cpf da pessoa que vai realizar a transferencia: "))
+            giver_bank = input("Digite o banco no qual deve ser feito o saque:").strip()
+
+            receiver_cpf = int(input("Digite o cpf da pessoa que vai receber a transferencia: "))
+            receiver_bank = input("Digite o banco no qual deve ser feito o depósito:").strip()
+
+            do_limit = True if input("A transferência deve ser limitada?\n"
+                                     "[s] - Sim\n"
+                                     "[n] - Não\n"
+                                     "-> ") == 's' else False
+
+            sys.make_transfer(
+                value=float(input(f"Qual valor que será transferido para o {sys.people[receiver_cpf].name}\n"
+                                  f"-> R$ ")),
+                origin_id=giver_cpf, origin_bank=giver_bank, target_id=receiver_cpf, target_bank=receiver_bank,
+                is_time_limited=do_limit)
+
+        elif option == 9:
+            sys.show_status()
+        elif option == 10:
+            cpf = int(input("Digite o CPF dessa pessoa: "))
+            sys.get_person_data(cpf)
