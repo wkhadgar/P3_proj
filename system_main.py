@@ -1,6 +1,7 @@
 from datetime import datetime
 import random
 
+
 class Account:
     def __init__(self, wallet_amount: float):
         """
@@ -159,6 +160,13 @@ class System:
         self.banks = {}
         self.people = {}
 
+    def show_status(self):
+        bank_amount = len(self.banks)
+        people_amount = len(self.people)
+        print(
+            f"\nO sistema tem {people_amount} {'pessoa cadastrada' if people_amount == 1 else 'pessoas cadastradas'} e {bank_amount}"
+            f" {'banco cadrastado' if bank_amount == 1 else 'bancos cadrastados'}.\n")
+
     def create_bank(self, *, name: str):
         """
         Cadastra um banco no sistema.
@@ -171,6 +179,7 @@ class System:
     def remove_bank(self, *, name: str):
         if self.banks[name].clients_ammount == 0:
             self.banks.pop(name)
+            print(f"O banco '{name}' foi removido do sistema com sucesso!")
         else:
             print(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
 
@@ -186,9 +195,12 @@ class System:
 
     def remove_person(self, cpf: int):
         try:
-            for acc in self.people[cpf].accounts.keys():
+            accounts = list(self.people[cpf].accounts.keys())
+            for acc in accounts:
                 self.banks[acc].close_account(self.people[cpf])
+            name = self.people[cpf].name
             self.people.pop(cpf)
+            print(f"A pessoa '{name}' foi removida do sistema com sucesso!")
         except ValueError:
             print(f"A pessoa com o identificador {cpf} não foi encontrada no sistema.")
 
@@ -306,10 +318,19 @@ receiver_cpf = int(input("Digite o CPF dessa pessoa: "))
 sys.create_person(name=giver_name, cpf=giver_cpf)
 sys.create_person(name=receiver_name, cpf=receiver_cpf)
 
+sys.show_status()
+
 sys.sys_open_account(giver_cpf, main_bank)
 sys.sys_open_account(receiver_cpf, main_bank)
 
 sys.sys_deposit(cpf=giver_cpf, bank=main_bank,
-                value=float(input(f"Qual valor que será depositado inicialmente na conta do {giver_name}?\n-> R$ ")))
+                value=float(input(f"Qual valor que será depositado inicialmente na conta do {giver_name}?\n-> R$ "))
+                )
 sys.make_transfer(value=float(input(f"Qual valor que será transferido para o {receiver_name}?\n-> R$ ")),
                   origin_id=giver_cpf, origin_bank=main_bank, target_id=receiver_cpf, target_bank=main_bank)
+
+sys.remove_person(giver_cpf)
+sys.remove_person(receiver_cpf)
+sys.remove_bank(name=main_bank)
+
+sys.show_status()
