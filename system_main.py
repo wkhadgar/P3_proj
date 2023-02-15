@@ -141,9 +141,10 @@ class Bank:
         self.clients[client.cpf].add_account(self.name)
         self.clients_ammount += 1
 
-    def close_account(self, person: Person):
+    def close_account(self, client: Person):
         try:
-            self.clients.remove(person)
+            self.clients[client.cpf].accounts.pop(self.name)
+            self.clients.pop(client.cpf)
             self.clients_ammount -= 1
         except ValueError:
             self.clients_ammount += 1
@@ -160,7 +161,7 @@ class System:
         self.banks = {}
         self.people = {}
 
-    def create_bank(self, *, name):
+    def create_bank(self, *, name: str):
         """
         Cadastra um banco no sistema.
 
@@ -168,6 +169,12 @@ class System:
         """
 
         self.banks[name] = Bank(name)
+
+    def remove_bank(self, *, name: str):
+        if self.banks[name].clients_ammount == 0:
+            self.banks.pop(name)
+        else:
+            print(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
 
     def create_person(self, *, name, cpf: int):
         """
@@ -178,6 +185,14 @@ class System:
         """
 
         self.people[cpf] = Person(name, cpf)
+
+    def remove_person(self, cpf: int):
+        try:
+            for acc in self.people[cpf].accounts.keys():
+                self.banks[acc].close_account(self.people[cpf])
+            self.people.pop(cpf)
+        except ValueError:
+            print(f"A pessoa com o identificador {cpf} não foi encontrada no sistema.")
 
     def sys_open_account(self, owner_id: int, bank: str):
         """
