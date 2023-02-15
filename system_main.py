@@ -240,7 +240,8 @@ class System:
     def get_person_data(self, cpf: int):
         print(f"\nDados da pessoa '{self.people[cpf].name}':")
         for acc in list(self.people[cpf].accounts.keys()):
-            print(f"\tValor no banco {acc} R${self.people[cpf].accounts[acc].balance:.2f}")
+            print(
+                f"\tValor no banco {acc} R${self.people[cpf].accounts[acc].balance:.2f}; Score relacionado: {self.people[cpf].accounts[acc].score:}")
         print("\n")
 
     def sys_open_account(self, owner_id: int, bank: str):
@@ -351,6 +352,7 @@ class System:
 
 sys = System()
 
+print("\nDemo de utilização sistema\n")
 main_bank = input("Digite o nome do primeiro banco a ser criado: ").strip()
 other_bank = input("Digite o nome do segundo banco a ser criado: ").strip()
 fee = 0.01
