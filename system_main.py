@@ -1,51 +1,12 @@
 from interface import *
-import SUB_classes as sub
+import SUB as sub
 
-sys = sub.System()
 root = tk.Tk()
 root.geometry("500x300")
 style = ttk.Style(root)
 style.theme_use("clam")  # ou "alt", "default", e "classic"
 
-interface = Interface(root)
-
-
-def rc_bank_exists():
-    rcb = RetryCancelPopup("O banco já existe no sistema. Tente novamente.")
-    rcb.show()
-
-
-def new_person():
-    prs = AddPersonForm(tk.Tk(),
-                        lambda: sys.create_person(name=prs.fields["Nome:"], cpf=int(prs.fields["CPF:"])))
-    prs.show_form()
-    return prs
-
-
-def new_bank():
-    bnk = AddBankForm(tk.Tk(),
-                      lambda: sys.create_bank(name=bnk.fields["Nome:"], bank_fee=0))
-    bnk.show_form()
-    return bnk
-
-
-def new_transfer():
-    trf = TransferForm(tk.Tk(),
-                       lambda: sys.make_transfer(value=int(trf.fields["🡓 Valor: R$"]),
-                                                 origin_id=int(trf.fields["🡐 CPF:"]),
-                                                 origin_bank=trf.fields["🡐 Banco:"],
-                                                 target_id=int(trf.fields["🡒 CPF:"]),
-                                                 target_bank=trf.fields["🡒 Banco:"]))
-    trf.show_form()
-    return trf
-
-
-def new_account():
-    acc = OpenAccountForm(tk.Tk(),
-                          lambda: sys.sys_open_account(owner_id=int(acc.fields["CPF:"]), bank=acc.fields["Banco:"]))
-    acc.show_form()
-    return acc
-
+sys = sub.System(root)
 
 # Montagem do menu principal
 main_menu_buttons = [
@@ -55,17 +16,17 @@ main_menu_buttons = [
     Button("Informações", lambda: info_menu_state.show_state()),
     Button("Encerrar", lambda: root.destroy()),
 ]
-main_menu_state = interface.add_state("SUB", "Bem vindo ao SUB - Sistema Único de Bancos. O que deseja fazer?",
-                                      main_menu_buttons)
+main_menu_state = sys.add_state("SUB", "Bem vindo ao SUB - Sistema Único de Bancos. O que deseja fazer?",
+                                main_menu_buttons)
 
 # Montagem do menu de cadastro
 signup_menu_buttons = [
-    Button("Cadastro de Pessoa", lambda: new_person()),  # TODO completar com os callbacks corretos
-    Button("Cadastro de Banco", lambda: new_bank()),
-    Button("Criar conta em banco para pessoa", lambda: new_account()),
+    Button("Cadastro de Pessoa", lambda: sys.create_person()),  # TODO completar com os callbacks corretos
+    Button("Cadastro de Banco", lambda: sys.create_bank()),
+    Button("Criar conta em banco para pessoa", lambda: sys.sys_open_account()),
     Button("Voltar ao menu principal.", lambda: main_menu_state.show_state()),
 ]
-signup_menu_state = interface.add_state("Cadastro", "Qual cadastro deseja realizar?", signup_menu_buttons)
+signup_menu_state = sys.add_state("Cadastro", "Qual cadastro deseja realizar?", signup_menu_buttons)
 
 # Montagem do menu de remoção
 remove_menu_buttons = [
@@ -73,28 +34,27 @@ remove_menu_buttons = [
     Button("Remoção de Banco", lambda: print("RemBan")),
     Button("Voltar ao menu principal.", lambda: main_menu_state.show_state()),
 ]
-remove_menu_state = interface.add_state("Remoção", "Qual remoção deseja realizar?", remove_menu_buttons)
+remove_menu_state = sys.add_state("Remoção", "Qual remoção deseja realizar?", remove_menu_buttons)
 
 # Montagem do menu de finanças
 finances_menu_buttons = [
     Button("Depósito", lambda: print("Dep")),
     Button("Saque", lambda: print("Saq")),
-    Button("Transferência", (lambda: new_transfer())),
+    Button("Transferência", (lambda: sys.make_transfer())),
     Button("Voltar ao menu principal.", lambda: main_menu_state.show_state()),
 ]
-finances_menu_state = interface.add_state("Finanças", "Qual operação deseja realizar?", finances_menu_buttons)
+finances_menu_state = sys.add_state("Finanças", "Qual operação deseja realizar?", finances_menu_buttons)
 
 # Montagem do menu de informações
 info_menu_buttons = [
-    Button("Status do Sistema", lambda: rc_bank_exists()),
+    Button("Status do Sistema", lambda: print("Sta")),
     Button("Dados de uma Pesssoa", lambda: print("Dad")),
     Button("Voltar ao menu principal.", lambda: main_menu_state.show_state()),
 ]
-info_menu_state = interface.add_state("Informações", "O que deseja obter?", info_menu_buttons)
+info_menu_state = sys.add_state("Informações", "O que deseja obter?", info_menu_buttons)
 
 # Run the interface
-interface.run()
-
+sys.run()
 print("\n\n\n\n\n")
 
 run = True

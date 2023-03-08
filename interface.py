@@ -6,9 +6,10 @@ from abc import ABC, abstractmethod
 
 # TODO usar menu do tkinter para mostrar as pessoas como uma lista
 class PopUp:
-    def __init__(self, description: str, title: str):
+    def __init__(self, description: str, title: str, alt_description: str = ""):
         self.title: str = title
         self.description: str = description
+        self.alt_description: str = alt_description
         self.boolean: bool = False
 
     @abstractmethod
@@ -17,11 +18,35 @@ class PopUp:
 
 
 class RetryCancelPopup(PopUp):
-    def __init__(self, description: str):
-        super().__init__(description, "Atenção!")
+    def __init__(self, description: str, alt_description: str = ""):
+        super().__init__(description, "Atenção!", alt_description)
 
     def show(self):
-        self.boolean = tkinter.messagebox.askretrycancel(self.title, self.description)
+        self.boolean = tk.messagebox.askretrycancel(self.title, self.description + "\n" + self.alt_description)
+
+
+class InfoPopup(PopUp):
+    def __init__(self, description: str, alt_description: str = ""):
+        super().__init__(description, "Informação:", alt_description)
+
+    def show(self):
+        self.boolean = tk.messagebox.showinfo(self.title, self.description + "\n" + self.alt_description)
+
+
+class WarningPopup(PopUp):
+    def __init__(self, description: str, alt_description: str = ""):
+        super().__init__(description, "Atenção!", alt_description)
+
+    def show(self):
+        self.boolean = tk.messagebox.showwarning(self.title, self.description + "\n" + self.alt_description)
+
+
+class ErrorPopup(PopUp):
+    def __init__(self, description: str, alt_description: str = ""):
+        super().__init__(description, "Erro crítico.", alt_description)
+
+    def show(self):
+        self.boolean = tk.messagebox.showerror(self.title, self.description + "\n" + self.alt_description)
 
 
 class InputForm:
@@ -99,6 +124,7 @@ class AddBankForm(InputForm):
     def __init__(self, root, callback=None):
         fields = {
             "Nome:": "",
+            "Taxa de transferência externa: (%)": "0"
         }
         super().__init__(root, "Cadastro de Banco", fields, callback)
 

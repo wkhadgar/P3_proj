@@ -1,5 +1,29 @@
 import random
 from datetime import datetime
+from interface import *
+
+
+def popup_rc_bank_exists():
+    rcb = RetryCancelPopup("O banco já existe no sistema. Tente novamente.")
+    rcb.show()
+
+
+def popup_success_info(details: str = ""):
+    rcb = InfoPopup("Operação realizada com sucesso! \nContinue um bom servidor!", details)
+    rcb.show()
+
+
+def popup_error(details: str = ""):
+    err = ErrorPopup("Um erro ocorreu do lado do sistema. Não pedimos perdão.\nSeus créditos socias "
+                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)", details)
+    err.show()
+
+
+def popup_warning(details: str = ""):
+    wrn = WarningPopup("Um erro ocorreu, mas não foi do meu lado. Verifique os dados inseridos.\nPor sua "
+                       "incopetencia seus créditos socias foram deduzidos em 700 pontos. (Erros de servidores são "
+                       "punidos com pena máxima. Não os cometa novamente.)", details)
+    wrn.show()
 
 
 class Account:
@@ -191,17 +215,18 @@ class Bank:
             self.clients_ammount += 1
 
 
-class System:
-    def __init__(self):
+class System(Interface):
+    def __init__(self, root: tk.Tk):
         """
         Descreve um sistema. É o ponto de entrada do sistema, todas as operações são realizados sob o esse escopo.
 
         Os sistemas armazenam as pessoas e os bancos, além de manusear as operações que as envolvem.
         """
-
+        super().__init__(root)
         self.transactions = {}
         self.banks = {}
         self.people = {}
+        self.current_form: InputForm = None
 
     def show_status(self):
         bank_amount = len(self.banks)
@@ -226,36 +251,50 @@ class System:
                 continue
         print()
 
-    def create_bank(self, *, name: str, bank_fee: float):
+    def __create_bank(self):
+        name = self.current_form.fields["Nome:"]
+        bank_fee = self.current_form.fields["Taxa de transferência externa: (%)"]
+
+        self.banks[name] = Bank(name, fee=bank_fee)
+        popup_success_info(f"Banco {name} criado com sucesso.")
+
+    def create_bank(self):
         """
         Cadastra um banco no sistema.
 
         :param name: Nome do banco.
         """
-
-        self.banks[name] = Bank(name, fee=bank_fee)
-        print(f"Banco {name} criado com sucesso.")
+        bnk = AddBankForm(tk.Tk(), self.__create_bank)
+        bnk.show_form()
+        self.current_form = bnk
 
     def remove_bank(self, *, name: str):
         try:
             if self.banks[name].clients_ammount == 0:
                 self.banks.pop(name)
-                print(f"O banco '{name}' foi removido do sistema com sucesso!")
+                popup_success_info(f"O banco '{name}' foi removido do sistema com sucesso!")
             else:
-                print(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
+                popup_error(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
         except KeyError:
-            print("Banco não encontrado no sistema!")
+            popup_warning("Banco não encontrado no sistema!")
 
-    def create_person(self, *, name, cpf: int):
+    def __create_person(self):
+        name = self.current_form.fields["Nome:"]
+        cpf = int(self.current_form.fields["CPF:"])
+
+        self.people[cpf] = Person(name, cpf)
+        popup_success_info(f"A pessoa {name} cadastrada com sucesso.")
+
+    def create_person(self):
         """
         Cadastra uma pessoa no sistema.
 
         :param name: Nome da pessoa.
         :param cpf: Identificador único da pessoa.
         """
-
-        self.people[cpf] = Person(name, cpf)
-        print(f"A pessoa {name} cadastrada com sucesso.")
+        prs = AddPersonForm(tk.Tk(), self.__create_person)
+        prs.show_form()
+        self.current_form = prs
 
     def remove_person(self, cpf: int):
         try:
@@ -279,16 +318,20 @@ class System:
         except KeyError:
             print("A pessoa não foi encontrada no sistema!")
 
-    def sys_open_account(self, owner_id: int, bank: str):
-        """
-        Cria uma conta para a pessoa indicada, no banco dado.
-
-        :param owner_id: Identficador único do dono da conta.
-        :param bank: Banco responsável pela conta criada.
-        """
+    def __sys_open_account(self):
+        owner_id = int(self.current_form.fields["CPF:"])
+        bank = self.current_form.fields["Banco:"]
 
         self.banks[bank].open_account(self.people[owner_id])
-        print(f"A conta de {self.people[owner_id].name} foi criada em {bank} com sucesso!")
+        popup_success_info(f"A conta de {self.people[owner_id].name} foi criada em {bank} com sucesso!")
+
+    def sys_open_account(self):
+        """
+        Cria uma conta para a pessoa indicada, no banco dado.
+        """
+        acc = OpenAccountForm(tk.Tk(), self.__sys_open_account)
+        acc.show_form()
+        self.current_form = acc
 
     def make_deposit(self, *, cpf: int, bank: str, value: float):
         """
@@ -347,8 +390,7 @@ class System:
         self.transactions[new_id] = transaction
         return new_id
 
-    def make_transfer(self, *, value: float, origin_id: int, origin_bank: str, target_id: int, target_bank: str,
-                      is_time_limited=False):
+    def __make_transfer(self, is_time_limited: bool = False):
         """
         Realiza uma transferência no valor dado, entre duas pessoas, em seus respectivos bancos.
 
@@ -361,6 +403,12 @@ class System:
         :return: A transação realizada.
         """
 
+        value = int(self.current_form.fields["🡓 Valor: R$"])
+        origin_id = int(self.current_form.fields["🡐 CPF:"])
+        origin_bank = self.current_form.fields["🡐 Banco:"]
+        target_id = int(self.current_form.fields["🡒 CPF:"])
+        target_bank = self.current_form.fields["🡒 Banco:"]
+
         new_transaction = Transfer(value, origin_id, origin_bank, target_id, target_bank)
 
         now = datetime.now()
@@ -369,17 +417,24 @@ class System:
 
         try:
             taxed_value = value + self.banks[origin_bank].fee * value if origin_bank != target_bank else value
-            print(
-                    f"\n\nO sistema automatizou a transferência: {self.people[origin_id].name} em {origin_bank} para "
-                    f"{self.people[target_id].name} em {target_bank}\n")
             done = self.make_draw(cpf=origin_id, bank=origin_bank, value=taxed_value, has_time_limit=is_time_limited)
             if done != 0:
                 new_transaction.succeded = True
                 self.banks[origin_bank].vault += taxed_value - value
                 self.make_deposit(cpf=target_id, bank=target_bank, value=value)
+
+                popup_success_info(
+                        f"\n\nO sistema automatizou a transferência: {self.people[origin_id].name} em {origin_bank} "
+                        f"para "
+                        f"{self.people[target_id].name} em {target_bank}\n")
             else:
-                pass
+                popup_warning("Não há dinheiro suficiente na conta de origem.")
         except KeyError:
-            print("Erro!!")
+            popup_warning()
 
         return new_transaction
+
+    def make_transfer(self, *, is_time_limited: bool = False):
+        trf = TransferForm(tk.Tk(), self.__make_transfer)
+        trf.show_form()
+        self.current_form = trf
