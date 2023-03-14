@@ -50,7 +50,7 @@ class ErrorPopup(PopUp):
 
 
 class InputForm:
-    def __init__(self, root: tk.Tk, title: str, fields: dict, callback):
+    def __init__(self, root: tk.Toplevel | tk.Tk, title: str, fields: dict, callback):
         self.root: tk.Tk = root
         self.title: str = title
         self.fields: dict = fields
@@ -67,12 +67,15 @@ class InputForm:
         title_label = ttk.Label(self.root, text=self.title, font=("Arial", 16))
         title_label.pack(pady=10)
 
-        for field in list(self.fields.keys()):
+        for field_name, field_value in self.fields.items():
             frame = ttk.Frame(self.root)
             frame.pack(pady=5)
-            label = ttk.Label(frame, text=field, font=("Arial", 12))
+            label = ttk.Label(frame, text=field_name, font=("Arial", 12))
             label.pack(side="left", padx=10)
-            input_field = ttk.Entry(frame, font=("Arial", 12))
+            if isinstance(field_value, list):
+                input_field = ttk.Combobox(frame, font=("Arial", 12), values=field_value, state="readonly")
+            else:
+                input_field = ttk.Entry(frame, font=("Arial", 12))
             input_field.pack(side="right", padx=10)
             self.inputs.append(input_field)
 
@@ -100,7 +103,6 @@ class AddPersonForm(InputForm):
     def __init__(self, root, callback=None):
         fields = {
             "Nome:": "",
-            "Idade:": "",
             "CPF:": "",
         }
         super().__init__(root, "Cadastro de Pessoa", fields, callback)
@@ -110,8 +112,9 @@ class AddPersonForm(InputForm):
 
 
 class RemovePersonForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, names: list = None):
         fields = {
+            "Pessoa:": names,
             "CPF:": "",
         }
         super().__init__(root, "Remoção de Pessoa", fields, callback)
@@ -124,7 +127,7 @@ class AddBankForm(InputForm):
     def __init__(self, root, callback=None):
         fields = {
             "Nome:": "",
-            "Taxa de transferência externa: (%)": "0"
+            "Taxa: (%)": "0"
         }
         super().__init__(root, "Cadastro de Banco", fields, callback)
 
@@ -133,9 +136,9 @@ class AddBankForm(InputForm):
 
 
 class RemoveBankForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, banks: list = None):
         fields = {
-            "Nome:": "",
+            "Banco:": banks,
         }
         super().__init__(root, "Remoção de Banco", fields, callback)
 
@@ -144,10 +147,10 @@ class RemoveBankForm(InputForm):
 
 
 class OpenAccountForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, banks: list = None):
         fields = {
             "CPF:": "",
-            "Banco:": "",
+            "Banco:": banks
         }
         super().__init__(root, "Abertura de Conta", fields, callback)
 
@@ -168,10 +171,10 @@ class CloseAccountForm(InputForm):
 
 
 class DepositForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, banks: list = None):
         fields = {
             "CPF:": "",
-            "Banco:": "",
+            "Banco:": banks,
             "Valor: R$": "",
         }
         super().__init__(root, "Depósito em conta", fields, callback)
@@ -181,10 +184,10 @@ class DepositForm(InputForm):
 
 
 class DrawForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, banks: list = None):
         fields = {
             "CPF:": "",
-            "Banco:": "",
+            "Banco:": banks,
             "Valor: R$": "",
         }
         super().__init__(root, "Saque em conta", fields, callback)
@@ -194,18 +197,41 @@ class DrawForm(InputForm):
 
 
 class TransferForm(InputForm):
-    def __init__(self, root, callback=None):
+    def __init__(self, root, callback=None, banks: list = None):
         fields = {
             "🡐 CPF:": "",
-            "🡐 Banco:": "",
+            "🡐 Banco:": banks,
             "🡓 Valor: R$": "",
             "🡒 CPF:": "",
-            "🡒 Banco:": "",
+            "🡒 Banco:": banks,
         }
         super().__init__(root, "Transferência entre contas", fields, callback)
 
     def show_form(self):
         self.create_widgets()
+
+
+class ScrollableFrame(tk.Frame):
+    def __init__(self, parent, title="", *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+
+        self.canvas = tk.Canvas(self, highlightthickness=0)
+        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = tk.Frame(self.canvas)
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=self.scrollbar.set)
+
+        self.title_label = tk.Label(self, text=title, font=("Arial", 12, "bold"))
+
+        self.title_label.pack(side="top", fill="x")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollbar.pack(side="right", fill="y")
+
+    @staticmethod
+    def add_item(item: tk.Label):
+        item.pack(side="top", padx=5, anchor="nw")
 
 
 class Button:
