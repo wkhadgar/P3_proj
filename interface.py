@@ -84,7 +84,6 @@ class InputForm:
         save_button.pack(pady=10)
 
         self.inputs[0].focus()
-        self.root.wm_attributes("-topmost", True)
 
     @abstractmethod
     def show_form(self):
@@ -106,6 +105,17 @@ class AddPersonForm(InputForm):
             "CPF:": "",
         }
         super().__init__(root, "Cadastro de Pessoa", fields, callback)
+
+    def show_form(self):
+        self.create_widgets()
+
+
+class CheckPersonForm(InputForm):
+    def __init__(self, root, callback=None):
+        fields = {
+            "CPF:": "",
+        }
+        super().__init__(root, "Pesquisa de Pessoa", fields, callback)
 
     def show_form(self):
         self.create_widgets()

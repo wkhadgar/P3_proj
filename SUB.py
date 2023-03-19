@@ -236,7 +236,7 @@ class System(Interface):
         super().__init__(root)
 
         self.data = SysData()
-        self.current_form: InputForm = None
+        self.current_form: InputForm = InputForm(root, "", {}, None)
         self.has_save = False
         self.save_name = ""
 
@@ -285,15 +285,16 @@ class System(Interface):
 
     def __remove_bank(self):
         name = self.current_form.fields["Banco:"]
-        try:
-            if self.data.banks[name].clients_ammount == 0:
-                self.data.banks.pop(name)
-                self.__save_sys()
-                popup_success_info(f"O banco '{name}' foi removido do sistema com sucesso!")
-            else:
-                popup_error(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
-        except KeyError:
-            popup_warning("Banco não encontrado no sistema!")
+        if name == "":
+            popup_warning("Selecione um banco!")
+            return
+
+        if self.data.banks[name].clients_ammount == 0:
+            self.data.banks.pop(name)
+            self.__save_sys()
+            popup_success_info(f"O banco '{name}' foi removido do sistema com sucesso!")
+        else:
+            popup_error(f"Não foi possível excluir o banco, pois ainda há clientes cadastrados nele.")
 
     def __create_person(self):
         name = self.current_form.fields["Nome:"]
@@ -304,42 +305,87 @@ class System(Interface):
         popup_success_info(f"A pessoa {name} cadastrada com sucesso.")
 
     def __remove_person(self):
-        cpf = self.current_form.fields["CPF:"]
         name = self.current_form.fields["Pessoa:"]
         try:
-            cpf = int(cpf)
+            cpf = int(self.current_form.fields["CPF:"])
         except ValueError:
             popup_warning("CPF inválido.")
             return
 
+        if self.__person_exists(cpf):
+            return
+
+        if self.data.people[cpf].name == name:
+            accounts = list(self.data.people[cpf].accounts.keys())
+            for acc in accounts:
+                self.data.banks[acc].close_account(self.data.people[cpf])
+            name = self.data.people[cpf].name
+            self.data.people.pop(cpf)
+            self.__save_sys()
+            popup_success_info(f"A pessoa '{name}' foi removida do sistema com sucesso!")
+        else:
+            popup_warning("O CPF informado não corresponde a pessoa que deseja remover.")
+
+    def __show_person_data(self):
         try:
-            if self.data.people[cpf].name == name:
-                accounts = list(self.data.people[cpf].accounts.keys())
-                for acc in accounts:
-                    self.data.banks[acc].close_account(self.data.people[cpf])
-                name = self.data.people[cpf].name
-                self.data.people.pop(cpf)
-                self.__save_sys()
-                popup_success_info(f"A pessoa '{name}' foi removida do sistema com sucesso!")
-            else:
-                popup_warning("O CPF informado não corresponde a pessoa que deseja remover.")
-        except KeyError:
-            popup_warning(f"A pessoa com o identificador {cpf} não foi encontrada no sistema.")
+            cpf = int(self.current_form.fields["CPF:"])
+        except ValueError:
+            if popup_retry_cancel("CPF inválido."):
+                self.screen_get_person_data()
+            return
+
+        if not self.__person_exists(cpf):
+            return
+
+        window = tk.Toplevel()
+        window.wm_geometry("500x300")
+        window.title(f"Dados Pessoais")
+        window.lift()
+
+        person_info = ["Informações:"]
+        mean_scr = 0
+        funds = 0
+        for acc in list(self.data.people[cpf].accounts.keys()):
+            bnk_balance = self.data.people[cpf].accounts[acc].balance
+            bnk_score = self.data.people[cpf].accounts[acc].score
+            person_info.append(f"\tValor no banco {acc} R${bnk_balance:.2f}; Score relacionado: {bnk_score:.2f}")
+
+            funds += bnk_balance
+            mean_scr += bnk_score
+
+        mean_scr /= len(self.data.people[cpf].accounts.keys())
+
+        person_info.append("\nResumo total:")
+        person_info.append(f"\tFundos totais:  R${funds:.2f}")
+        person_info.append(f"\tMédia de score: {mean_scr:.2f} pontos.")
+
+        frame = ScrollableFrame(window, f"Dados de {self.data.people[cpf].name}")
+        frame.pack(side="top", fill="both", expand=True)
+        for item in person_info:
+            label = tk.Label(frame.scrollable_frame, text=item)
+            frame.add_item(label)
+
+        window.mainloop()
 
     def __sys_open_account(self):
+        bank = self.current_form.fields["Banco:"]
+        if bank == "":
+            popup_warning("Selecione um banco!")
+            return
+
         try:
             owner_id = int(self.current_form.fields["CPF:"])
-            bank = self.current_form.fields["Banco:"]
-
-            if owner_id in list(self.data.people.keys()):
-                self.data.banks[bank].open_account(self.data.people[owner_id])
-                self.__save_sys()
-                popup_success_info(f"A conta de {self.data.people[owner_id].name} foi criada em {bank} com sucesso!")
-            else:
-                popup_warning("O CPF informado não foi encontrado no sistema.")
         except ValueError:
             if popup_retry_cancel("Digite um CPF válido."):
                 self.screen_open_account()
+            return
+
+        if not self.__person_exists(owner_id):
+            return
+
+        self.data.banks[bank].open_account(self.data.people[owner_id])
+        self.__save_sys()
+        popup_success_info(f"A conta de {self.data.people[owner_id].name} foi criada em {bank} com sucesso!")
 
     def __make_deposit(self):
         try:
@@ -347,20 +393,61 @@ class System(Interface):
         except ValueError:
             popup_warning("CPF inválido.")
             return
+
         bank = self.current_form.fields["Banco:"]
+        if bank == "":
+            popup_warning("Selecione um banco!")
+            return
+
         try:
             value = float(self.current_form.fields["Valor: R$"])
         except ValueError:
             popup_warning("Valor inválido.")
             return
 
+        if not self.__person_and_account_exists(cpf, bank):
+            return
+
+        self.data.people[cpf].accounts[bank].deposit(value)
+        self.data.banks[bank].vault += value
+        self.__save_sys()
+        popup_success_info(f"{self.data.people[cpf].name} realizou uma operação de depósito em {bank}")
+
+    def __make_draw(self):
+        """
+        Tenta sacar o valor dado da conta da pessoa indicada, em seu respectivo banco.
+
+        :param cpf: Identificador único da pessoa.
+        :param bank: Banco responsável pela conta da pessoa.
+        :param value: Valor do saque.
+        :param has_time_limit: Opcional, se verdadeiro o saque usará os limites da conta.
+        :return: Valor retirado, 0 se não foi possível sacar.
+        """
+
+        bank = self.current_form.fields["Banco:"]
+
         try:
-            self.data.people[cpf].accounts[bank].deposit(value)
-            self.data.banks[bank].vault += value
+            cpf = int(self.current_form.fields["CPF:"])
+        except ValueError:
+            popup_warning("CPF inválido.")
+            return
+
+        try:
+            value = float(self.current_form.fields["Valor: R$"])
+        except ValueError:
+            popup_warning("Valor inválido.")
+            return
+
+        if not self.__person_and_account_exists(cpf, bank):
+            return
+
+        is_time_limited = self.data.people[cpf].accounts[bank].is_limited
+        done = self.data.people[cpf].accounts[bank].draw(value, has_time_limit=is_time_limited)
+        if done:
             self.__save_sys()
-            popup_success_info(f"{self.data.people[cpf].name} realizou uma operação de depósito em {bank}")
-        except KeyError:
-            popup_warning("O banco ou a pessoa não existe.\n")
+            popup_success_info(f"{self.data.people[cpf].name} realizou uma operação de saque em {bank}")
+        else:
+            popup_error("Não há dinheiro suficiente para o saque.")
 
     def __make_transfer(self):
         """
@@ -377,6 +464,9 @@ class System(Interface):
 
         origin_bank = self.current_form.fields["🡐 Banco:"]
         target_bank = self.current_form.fields["🡒 Banco:"]
+        if origin_bank == "" or target_bank == "":
+            popup_warning("Selecione os bancos!")
+            return
 
         try:
             value = float(self.current_form.fields["🡓 Valor: R$"])
@@ -389,24 +479,18 @@ class System(Interface):
         except ValueError:
             popup_warning("CPF de origem inválido.")
             return
+
         try:
             target_id = int(self.current_form.fields["🡒 CPF:"])
         except ValueError:
             popup_warning("CPF de destino inválido.")
             return
 
-        try:
-            if not (origin_bank in list(self.data.people[origin_id].accounts.keys())):
-                popup_warning(f"{self.data.people[origin_id].name} não possui conta em {origin_bank}.")
-                return
-            elif not (target_bank in list(self.data.people[target_id].accounts.keys())):
-                popup_warning(f"{self.data.people[target_id].name} não possui conta em {target_bank}.")
-                return
-            else:
-                is_time_limited = self.data.people[origin_id].accounts[origin_bank].is_limited
-        except KeyError:
-            popup_warning("CPF não encontrado no sistema.")
+        if (not self.__person_and_account_exists(origin_id, origin_bank)) or (
+                not self.__person_and_account_exists(target_id, target_bank)):
             return
+
+        is_time_limited = self.data.people[origin_id].accounts[origin_bank].is_limited
 
         new_transaction = Transfer(value, origin_id, origin_bank, target_id, target_bank)
 
@@ -432,13 +516,23 @@ class System(Interface):
 
         return new_transaction
 
+    def __person_exists(self, cpf: int) -> bool:
+        if cpf not in list(self.data.people.keys()):
+            popup_error("O CPF informado não foi encontrado no sistema.")
+            return False
+        return True
+
+    def __person_and_account_exists(self, cpf: int, bank: str) -> bool:
+        if self.__person_exists(cpf):
+            if bank not in list(self.data.people[cpf].accounts.keys()):
+                popup_error(f"{self.data.people[cpf].name} não possui conta em {bank}.")
+                return False
+            return True
+        return False
+
     def screen_show_status(self):
         bank_amount = len(self.data.banks)
         people_amount = len(self.data.people)
-        print(
-                f"\nO sistema tem {people_amount} "
-                f"{'pessoa cadastrada' if people_amount == 1 else 'pessoas cadastradas'} e "
-                f"{bank_amount} {'banco cadrastado' if bank_amount == 1 else 'bancos cadrastados'}.\n")
 
         p_info = []
         for i, p in enumerate(list(self.data.people.values())):
@@ -446,7 +540,7 @@ class System(Interface):
 
         b_info = []
         for i, b in enumerate(list(self.data.banks.values())):
-            b_info.append(f"  {i + 1}. {b.name} - Taxa de transferência externa: {b.fee * 100}%")
+            b_info.append(f"  {i + 1}. {b.name} - Taxa de T.E.: {b.fee * 100}%")
 
         window = tk.Toplevel()
         window.title("Status do Sistema")
@@ -507,17 +601,10 @@ class System(Interface):
         rm_prs.show_form()
         self.current_form = rm_prs
 
-    def screen_get_person_data(self, cpf: int):
-        try:
-            print(f"\nDados da pessoa '{self.data.people[cpf].name}':")
-            for acc in list(self.data.people[cpf].accounts.keys()):
-                print(
-                        f"\tValor no banco {acc} R${self.data.people[cpf].accounts[acc].balance:.2f}; Score "
-                        f"relacionado: "
-                        f"{self.data.people[cpf].accounts[acc].score:}")
-            print("\n")
-        except KeyError:
-            print("A pessoa não foi encontrada no sistema!")
+    def screen_get_person_data(self):
+        prs = CheckPersonForm(tk.Toplevel(), self.__show_person_data)
+        prs.show_form()
+        self.current_form = prs
 
     def screen_open_account(self):
         """
@@ -541,26 +628,10 @@ class System(Interface):
         dpt.show_form()
         self.current_form = dpt
 
-    def screen_make_draw(self, *, cpf: int, bank: str, value: float, has_time_limit=False):
-        """
-        Tenta sacar o valor dado da conta da pessoa indicada, em seu respectivo banco.
-
-        :param cpf: Identificador único da pessoa.
-        :param bank: Banco responsável pela conta da pessoa.
-        :param value: Valor do saque.
-        :param has_time_limit: Opcional, se verdadeiro o saque usará os limites da conta.
-        :return: Valor retirado, 0 se não foi possível sacar.
-        """
-
-        drawed = 0
-        print("________________________________________________________")
-        try:
-            print(f"{self.data.people[cpf].name} realizou uma operação de saque em {bank}")
-
-        except KeyError:
-            print("O banco ou a pessoa não existe.\n")
-        print("________________________________________________________\n")
-        return drawed
+    def screen_make_draw(self):
+        drf = DrawForm(tk.Toplevel(), self.__make_draw, list(self.data.banks.keys()))
+        drf.show_form()
+        self.current_form = drf
 
     def screen_make_transfer(self):
         trf = TransferForm(tk.Toplevel(), self.__make_transfer, list(self.data.banks.keys()))
