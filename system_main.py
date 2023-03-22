@@ -1,5 +1,5 @@
-from interface import *
 import SUB as sub
+from interface import tk, ttk, Button
 
 root = tk.Tk()
 root.geometry("500x300")
