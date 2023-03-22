@@ -1,10 +1,11 @@
+from __future__ import annotations
 import tkinter as tk
 import tkinter.messagebox
 from tkinter import ttk
+from typing import Dict, TypeVar
 from abc import ABC, abstractmethod
 
 
-# TODO usar menu do tkinter para mostrar as pessoas como uma lista
 class PopUp:
     def __init__(self, description: str, title: str, alt_description: str = ""):
         self.title: str = title
