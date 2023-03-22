@@ -12,21 +12,21 @@ def popup_retry_cancel(details: str = ""):
     return rcb.boolean
 
 
-def popup_success_info(details: str = ""):
-    rcb = InfoPopup("Operação realizada com sucesso! \nContinue um bom servidor!", details)
+def popup_success_info(details: str = "", funnify:bool = False):
+    rcb = InfoPopup("Operação realizada com sucesso! \nContinue um bom servidor!" if funnify else "", details)
     rcb.show()
 
 
-def popup_error(details: str = ""):
+def popup_error(details: str = "",funnify:bool = False):
     err = ErrorPopup("Um erro ocorreu do lado do sistema. Não pedimos perdão.\nSeus créditos socias "
-                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)", details)
+                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)" if funnify else "", details)
     err.show()
 
 
-def popup_warning(details: str = ""):
+def popup_warning(details: str = "", funnify:bool = False):
     wrn = WarningPopup("Um erro ocorreu, mas não foi do meu lado. Verifique os dados inseridos.\nPor sua "
                        "incopetencia seus créditos socias foram deduzidos em 700 pontos. (Erros de servidores são "
-                       "punidos com pena máxima. Não os cometa novamente.)", details)
+                       "punidos com pena máxima. Não os cometa novamente.)" if funnify else "", details)
     wrn.show()
 
 
@@ -109,7 +109,7 @@ class Person:
 
         self.name = name.strip().capitalize()
         self.cpf = cpf
-        self.accounts = {}
+        self.accounts: dict[str, Account] = {}
 
     def add_account(self, account_bank: str, *, value=0):
         """
@@ -194,7 +194,7 @@ class Bank:
         """
 
         self.name = name.strip()
-        self.clients = {}
+        self.clients: dict[int, Person] = {}
         self.clients_ammount = 0
         self.vault = 10000
         self.fee = fee
@@ -221,9 +221,9 @@ class Bank:
 
 class SysData:
     def __init__(self):
-        self.transactions = {}
-        self.banks = {}
-        self.people = {}
+        self.transactions: list[Transaction] = []
+        self.banks: dict[str, Bank] = {}
+        self.people: dict[int, Person] = {}
 
 
 class System(Interface):
@@ -236,7 +236,7 @@ class System(Interface):
         super().__init__(root)
 
         self.data = SysData()
-        self.current_form: InputForm = InputForm(root, "", {}, None)
+        self.current_form = InputForm(root, "", {}, None)
         self.has_save = False
         self.save_name = ""
 
@@ -345,25 +345,31 @@ class System(Interface):
         person_info = ["Informações:"]
         mean_scr = 0
         funds = 0
-        for acc in list(self.data.people[cpf].accounts.keys()):
-            bnk_balance = self.data.people[cpf].accounts[acc].balance
-            bnk_score = self.data.people[cpf].accounts[acc].score
-            person_info.append(f"\tValor no banco {acc} R${bnk_balance:.2f}; Score relacionado: {bnk_score:.2f}")
+        
+        if len(self.data.people[cpf].accounts.keys()) > 0:
 
-            funds += bnk_balance
-            mean_scr += bnk_score
+            for acc in list(self.data.people[cpf].accounts.keys()):
+                bnk_balance = self.data.people[cpf].accounts[acc].balance
+                bnk_score = self.data.people[cpf].accounts[acc].score
+                person_info.append(f"\tSaldo no banco {acc} R${bnk_balance:.2f};  Score relacionado: {bnk_score:.2f}")
 
-        mean_scr /= len(self.data.people[cpf].accounts.keys())
+                funds += bnk_balance
+                mean_scr += bnk_score
 
-        person_info.append("\nResumo total:")
-        person_info.append(f"\tFundos totais:  R${funds:.2f}")
-        person_info.append(f"\tMédia de score: {mean_scr:.2f} pontos.")
+            mean_scr /= len(self.data.people[cpf].accounts.keys())
 
-        frame = ScrollableFrame(window, f"Dados de {self.data.people[cpf].name}")
-        frame.pack(side="top", fill="both", expand=True)
-        for item in person_info:
-            label = tk.Label(frame.scrollable_frame, text=item)
-            frame.add_item(label)
+            person_info.append("\nResumo total:")
+            person_info.append(f"\tFundos totais:  R${funds:.2f}")
+            person_info.append(f"\tMédia de score: {mean_scr:.2f} pontos.")
+
+            frame = ScrollableFrame(window, f"Dados de {self.data.people[cpf].name}")
+            frame.pack(side="top", fill="both", expand=True)
+            for item in person_info:
+                label = tk.Label(frame.scrollable_frame, text=item)
+                frame.add_item(label)
+        else:
+            frame = ScrollableFrame(window, f"{self.data.people[cpf].name} não possui contas.")
+            frame.pack(side="top", fill="both", expand=True)
 
         window.mainloop()
 
@@ -429,13 +435,16 @@ class System(Interface):
         try:
             cpf = int(self.current_form.fields["CPF:"])
         except ValueError:
-            popup_warning("CPF inválido.")
+            if (popup_retry_cancel("CPF inválido. Deseja tentar novamente?")):
+                self.screen_make_draw()
             return
+            
 
         try:
             value = float(self.current_form.fields["Valor: R$"])
         except ValueError:
-            popup_warning("Valor inválido.")
+            if (popup_retry_cancel("Valor inválido. Deseja tentar novamente?")):
+                self.screen_make_draw()
             return
 
         if not self.__person_and_account_exists(cpf, bank):
