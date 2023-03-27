@@ -1,29 +1,58 @@
+from __future__ import annotations
 import random
 import pickle
-import sys
 import tkinter.filedialog
 from datetime import datetime
 from interface import *
 
 
-def popup_retry_cancel(details: str = ""):
+def popup_retry_cancel(details: str = "") -> bool:
+    """
+    Emite um pop-up de nova tentativa.
+
+    :param details: Detalhes do pop-up.
+    :return bool: Se a pessoa deseja ou não tentar novamente.
+    """
+
     rcb = RetryCancelPopup(details)
     rcb.show()
     return rcb.boolean
 
 
-def popup_success_info(details: str = "", funnify:bool = False):
+def popup_success_info(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de informação do sistema.
+
+    :param details: Detalhes da informação.
+    :param funnify: Deixar a informação divertida.
+    """
+
     rcb = InfoPopup("Operação realizada com sucesso! \nContinue um bom servidor!" if funnify else "", details)
     rcb.show()
 
 
-def popup_error(details: str = "",funnify:bool = False):
+def popup_error(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de erro do sistema.
+
+    :param details: Detalhes do erro.
+    :param funnify: Deixar o erro divertido.
+    """
+
     err = ErrorPopup("Um erro ocorreu do lado do sistema. Não pedimos perdão.\nSeus créditos socias "
-                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)" if funnify else "", details)
+                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)" if funnify
+                     else "", details)
     err.show()
 
 
-def popup_warning(details: str = "", funnify:bool = False):
+def popup_warning(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de aviso do sistema.
+
+    :param details: Detalhes do aviso.
+    :param funnify: Deixar o aviso divertido.
+    """
+
     wrn = WarningPopup("Um erro ocorreu, mas não foi do meu lado. Verifique os dados inseridos.\nPor sua "
                        "incopetencia seus créditos socias foram deduzidos em 700 pontos. (Erros de servidores são "
                        "punidos com pena máxima. Não os cometa novamente.)" if funnify else "", details)
@@ -59,7 +88,7 @@ class Account:
         popup_success_info(f"Depositado R$ {amount:.2f} na conta, o novo total é de R${self.balance:.2f}")
         return self.balance
 
-    def draw(self, amount: int, *, has_time_limit=False):
+    def draw(self, amount: float, *, has_time_limit=False):
         """
         Tenta sacar da conta o valor dado.
 
@@ -82,8 +111,8 @@ class Account:
 
                 if amount > self.max_day_draw:
                     print(
-                            f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
-                            f"inferior ao valor desejado.")
+                        f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
+                        f"inferior ao valor desejado.")
                     return False
 
             self.balance = curr
@@ -93,8 +122,8 @@ class Account:
             return True
         else:
             popup_error(
-                    f"Não foi possível sacar R$ {amount:.2f}, o valor em conta não é suficiente. (R$"
-                    f"{self.balance:.2f})")
+                f"Não foi possível sacar R$ {amount:.2f}, o valor em conta não é suficiente. (R$"
+                f"{self.balance:.2f})")
             return False
 
 
@@ -133,6 +162,11 @@ class Person:
 
 class Transaction:
     def __init__(self, value: float):
+        """
+        Define uma transação.
+
+        :param value: Valor associado a essa transação.
+        """
         self.value = value
 
         self._id = 0
@@ -143,8 +177,8 @@ class Transaction:
 class Transfer(Transaction):
     def __init__(self, value: float, origin_id: int, origin_bank: str, target_id: int, target_bank: str):
         """
-        Descreve uma transação.
-        Cada transação contém um identificador aleatório e uma data atualizável que pode ser associada a sua realização.
+        É uma forma de transação de retirada e depósito em sequência, tratada como transferência.
+        Cada transferência contém um identificador aleatório e uma data atualizável que pode ser associada a sua realização.
 
         :param value: Valor da transação.
         :param origin_id: Identificador da pessoa de origem da transação.
@@ -164,6 +198,14 @@ class Transfer(Transaction):
 
 class Deposit(Transaction):
     def __init__(self, value: float, target_id: int, target_bank: str):
+        """
+        Descreve um depósito.
+
+        :param value: Valor da transação.
+        :param target_id: Identificador da pessoa de destino da transação.
+        :param target_bank: Nome do banco onde a pessoa de destino usará sua conta.
+        """
+
         if value < 0:
             value = 0
         super().__init__(value)
@@ -174,6 +216,14 @@ class Deposit(Transaction):
 
 class Draw(Transaction):
     def __init__(self, value: float, origin_id: int, origin_bank: str):
+        """
+        Descreve um saque.
+
+        :param value: Valor da transação.
+        :param origin_id: Identificador da pessoa de origem da transação.
+        :param origin_bank: Nome do banco onde a pessoa de origem deseja usar sua conta.
+        """
+
         if value > 0:
             value = 0
         super().__init__(value)
@@ -202,8 +252,7 @@ class Bank:
     def open_account(self, client: Person):
         """
         Abre uma conta no banco
-        :param client:
-        :return:
+        :param client: Pessoa a ter uma conta nesse banco vinculada.
         """
 
         self.clients[client.cpf] = client
@@ -211,6 +260,11 @@ class Bank:
         self.clients_ammount += 1
 
     def close_account(self, client: Person):
+        """
+        Fecha uma conta no banco
+        :param client: Pessoa a ter sua conta nesse banco removida.
+        """
+
         try:
             self.clients[client.cpf].accounts.pop(self.name)
             self.clients.pop(client.cpf)
@@ -221,7 +275,11 @@ class Bank:
 
 class SysData:
     def __init__(self):
-        self.transactions: list[Transaction] = []
+        """
+        Classe de encapsulamento de dados do sistema.
+        """
+
+        self.transactions: dict[int, Transaction] = {}
         self.banks: dict[str, Bank] = {}
         self.people: dict[int, Person] = {}
 
@@ -259,7 +317,7 @@ class System(Interface):
             if popup_retry_cancel("Selecione um arquivo válido."):
                 self.screen_load_data()
 
-    def __generate_transaction_id(self, transaction: Transfer):
+    def __generate_transaction_id(self, transaction: Transaction):
         new_id = random.randint(0, 999_999_999)
 
         while new_id in list(self.data.transactions.keys()):
@@ -298,7 +356,11 @@ class System(Interface):
 
     def __create_person(self):
         name = self.current_form.fields["Nome:"]
-        cpf = int(self.current_form.fields["CPF:"])
+        try:
+            cpf = int(self.current_form.fields["CPF:"])
+        except ValueError:
+            popup_warning("CPF inválido.")
+            return
 
         self.data.people[cpf] = Person(name, cpf)
         self.__save_sys()
@@ -345,7 +407,7 @@ class System(Interface):
         person_info = ["Informações:"]
         mean_scr = 0
         funds = 0
-        
+
         if len(self.data.people[cpf].accounts.keys()) > 0:
 
             for acc in list(self.data.people[cpf].accounts.keys()):
@@ -414,36 +476,28 @@ class System(Interface):
         if not self.__person_and_account_exists(cpf, bank):
             return
 
+        new_dpt = Deposit(value, cpf, bank)
+        new_dpt._id = self.__generate_transaction_id(new_dpt)
+
         self.data.people[cpf].accounts[bank].deposit(value)
         self.data.banks[bank].vault += value
         self.__save_sys()
         popup_success_info(f"{self.data.people[cpf].name} realizou uma operação de depósito em {bank}")
 
     def __make_draw(self):
-        """
-        Tenta sacar o valor dado da conta da pessoa indicada, em seu respectivo banco.
-
-        :param cpf: Identificador único da pessoa.
-        :param bank: Banco responsável pela conta da pessoa.
-        :param value: Valor do saque.
-        :param has_time_limit: Opcional, se verdadeiro o saque usará os limites da conta.
-        :return: Valor retirado, 0 se não foi possível sacar.
-        """
-
         bank = self.current_form.fields["Banco:"]
 
         try:
             cpf = int(self.current_form.fields["CPF:"])
         except ValueError:
-            if (popup_retry_cancel("CPF inválido. Deseja tentar novamente?")):
+            if popup_retry_cancel("CPF inválido. Deseja tentar novamente?"):
                 self.screen_make_draw()
             return
-            
 
         try:
             value = float(self.current_form.fields["Valor: R$"])
         except ValueError:
-            if (popup_retry_cancel("Valor inválido. Deseja tentar novamente?")):
+            if popup_retry_cancel("Valor inválido. Deseja tentar novamente?"):
                 self.screen_make_draw()
             return
 
@@ -453,24 +507,15 @@ class System(Interface):
         is_time_limited = self.data.people[cpf].accounts[bank].is_limited
         done = self.data.people[cpf].accounts[bank].draw(value, has_time_limit=is_time_limited)
         if done:
+            new_drw = Draw(value, cpf, bank)
+            new_drw._id = self.__generate_transaction_id(new_drw)
+
             self.__save_sys()
             popup_success_info(f"{self.data.people[cpf].name} realizou uma operação de saque em {bank}")
         else:
             popup_error("Não há dinheiro suficiente para o saque.")
 
     def __make_transfer(self):
-        """
-        Realiza uma transferência no valor dado, entre duas pessoas, em seus respectivos bancos.
-
-        :param value: Valor da transferência.
-        :param origin_id: Idenficador único da pessoa a transferir o dinheiro.
-        :param origin_bank: Nome do banco responsável pela conta da pessoa a transferir.
-        :param target_id: Idenficador único da pessoa a receberr o dinheiro.
-        :param target_bank: Nome do banco responsável pela conta da pessoa a receber.
-        :param is_time_limited: Opcional, se verdadeiro a transferencia usará os limites da conta.
-        :return: A transação realizada.
-        """
-
         origin_bank = self.current_form.fields["🡐 Banco:"]
         target_bank = self.current_form.fields["🡒 Banco:"]
         if origin_bank == "" or target_bank == "":
@@ -517,9 +562,9 @@ class System(Interface):
             new_transaction.succeded = True
             self.__save_sys()
             popup_success_info(
-                    f"\n\nO sistema automatizou a transferência: {self.data.people[origin_id].name} em {origin_bank} "
-                    f"para "
-                    f"{self.data.people[target_id].name} em {target_bank}\n")
+                f"\n\nO sistema automatizou a transferência: {self.data.people[origin_id].name} em {origin_bank} "
+                f"para "
+                f"{self.data.people[target_id].name} em {target_bank}\n")
         else:
             popup_error(f"Não há dinheiro suficiente na conta de origem. É nessessário ao menos R${taxed_value:.2f}")
 
@@ -579,11 +624,6 @@ class System(Interface):
         window.mainloop()
 
     def screen_create_bank(self):
-        """
-        Cadastra um banco no sistema.
-
-        :param name: Nome do banco.
-        """
         bnk = AddBankForm(tk.Toplevel(), self.__create_bank)
         bnk.show_form()
         self.current_form = bnk
@@ -594,12 +634,6 @@ class System(Interface):
         self.current_form = rm_bnk
 
     def screen_create_person(self):
-        """
-        Cadastra uma pessoa no sistema.
-
-        :param name: Nome da pessoa.
-        :param cpf: Identificador único da pessoa.
-        """
         prs = AddPersonForm(tk.Toplevel(), self.__create_person)
         prs.show_form()
         self.current_form = prs
@@ -616,23 +650,11 @@ class System(Interface):
         self.current_form = prs
 
     def screen_open_account(self):
-        """
-        Cria uma conta para a pessoa indicada, no banco dado.
-        """
         acc = OpenAccountForm(tk.Toplevel(), self.__sys_open_account, list(self.data.banks.keys()))
         acc.show_form()
         self.current_form = acc
 
     def screen_make_deposit(self):
-        """
-        Deposita o valor dado na conta da pessoa indicado, em seu respectivo banco.
-
-        :param cpf: Identificador único da pessoa.
-        :param bank: Banco responsável pela conta da pessoa.
-        :param value: Valor do depósito.
-        :return: Valor total da conta dessa pessoa após o depósito.
-        """
-
         dpt = DepositForm(tk.Toplevel(), self.__make_deposit, list(self.data.banks.keys()))
         dpt.show_form()
         self.current_form = dpt
