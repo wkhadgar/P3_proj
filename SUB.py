@@ -59,6 +59,13 @@ def popup_warning(details: str = "", funnify: bool = False):
     wrn.show()
 
 
+def cpf_string(cpf: int) -> str:
+    converted = str(cpf)
+    converted = "0" * (11 - len(converted)) + converted
+    converted = converted[0:3] + "." + converted[3:6] + "." + converted[6:9] + "-" + converted[9:11]
+    return converted
+
+
 class Account:
     def __init__(self, wallet_amount: float):
         """
@@ -404,7 +411,8 @@ class System(Interface):
         window.title(f"Dados Pessoais")
         window.lift()
 
-        person_info = ["Informações:"]
+        person_info = [f"CPF: {cpf_string(cpf)}"
+                       f"\n\tInformações:"]
         mean_scr = 0
         funds = 0
 
@@ -590,7 +598,7 @@ class System(Interface):
 
         p_info = []
         for i, p in enumerate(list(self.data.people.values())):
-            p_info.append(f"  {i + 1}. {p.name} - CPF: {p.cpf}")
+            p_info.append(f"  {i + 1}. {p.name} - CPF: {cpf_string(p.cpf)}")
 
         b_info = []
         for i, b in enumerate(list(self.data.banks.values())):
@@ -598,6 +606,7 @@ class System(Interface):
 
         window = tk.Toplevel()
         window.title("Status do Sistema")
+        window.geometry("400x700")
 
         if people_amount != 0:
             left_frame = ScrollableFrame(window, title="Pessoas cadastradas:")
@@ -615,7 +624,7 @@ class System(Interface):
             right_frame.pack(side="top", fill="both", expand=True)
 
             for item in b_info:
-                label = tk.Label(right_frame.scrollable_frame, text=item, font=("Segoe UI", 11))
+                label = tk.Label(right_frame.scrollable_frame, text=item)
                 right_frame.add_item(label)
         else:
             right_frame = ScrollableFrame(window, title="Não há bancos cadastrados.")
