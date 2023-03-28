@@ -3,6 +3,7 @@ from interface import tk, ttk, Button
 
 root = tk.Tk()
 root.geometry("500x310")
+root.iconbitmap(default=r"assets/SUB_ico.ico")
 root.wm_title("Sistema Único de Bancos")
 style = ttk.Style(root)
 style.theme_use("clam")  # ou "alt", "default", e "classic"
@@ -15,7 +16,7 @@ main_menu_buttons = [
     Button("Remoção", lambda: remove_menu_state.show_state()),
     Button("Financeiro", lambda: finances_menu_state.show_state()),
     Button("Mais", lambda: info_menu_state.show_state()),
-    Button("Encerrar", root.destroy),
+    Button("Encerrar", lambda: root.destroy()),
 ]
 main_menu_state = sys.add_state("SUB", "Bem vindo ao SUB - Sistema Único de Bancos. O que deseja fazer?",
                                 main_menu_buttons)
@@ -50,6 +51,7 @@ finances_menu_state = sys.add_state("Finanças", "Qual operação deseja realiza
 info_menu_buttons = [
     Button("Status do Sistema", sys.screen_show_status),
     Button("Dados de uma Pesssoa", sys.screen_get_person_data),
+    Button("Dados de uma Transação", sys.screen_search_transaction),
     Button("Carregar um SYS", sys.screen_load_data),
     Button("Voltar ao menu principal.", main_menu_state.show_state),
 ]
@@ -58,3 +60,7 @@ info_menu_state = sys.add_state("Mais", "O que deseja obter?", info_menu_buttons
 # Run the interface
 sys.run()
 print("\n\n\n\n\n")
+
+#Test IDs
+#901190711
+#916406097

@@ -96,7 +96,10 @@ class InputForm:
         self.is_filled = True
         if self.callback is not None:
             self.callback()
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except:
+            pass
 
 
 class AddPersonForm(InputForm):
@@ -222,6 +225,17 @@ class TransferForm(InputForm):
         self.create_widgets()
 
 
+class TransactionSearchForm(InputForm):
+    def __init__(self, root, callback=None):
+        fields = {
+            "ID #:": ""
+        }
+        super().__init__(root, "Pesquisa de Transação", fields, callback)
+
+    def show_form(self):
+        self.create_widgets()
+
+
 class ScrollableFrame(tk.Frame):
     def __init__(self, parent, title="", *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -303,7 +317,7 @@ class State(AbstractState):
 
 class Interface:
     def __init__(self, root):
-        self.root = root
+        self.root: tk.Tk = root
         self.states: list[State] = []
         self.current_state = None
 
