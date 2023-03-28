@@ -75,11 +75,11 @@ class Account:
         :param wallet_amount: Valor que a conta guarda no momento.
         """
 
-        self.balance = wallet_amount
-        self.score = 100  # Pontuação da conta.
-        self.max_day_draw = 100_000
-        self.max_night_draw = self.max_day_draw / 2
-        self.is_limited = False
+        self.balance: float = wallet_amount
+        self.score: float = 100  # Pontuação da conta.
+        self.max_day_draw: float = 100_000
+        self.max_night_draw: float = self.max_day_draw / 2
+        self.is_limited: bool = False
 
     def deposit(self, amount):
         """
@@ -143,8 +143,8 @@ class Person:
         :param cpf: Identificador único dessa pessoa.
         """
 
-        self.name = name.strip().capitalize()
-        self.cpf = cpf
+        self.name: str = name.strip().capitalize()
+        self.cpf: int = cpf
         self.accounts: dict[str, Account] = {}
 
     def add_account(self, account_bank: str, *, value=0):
@@ -174,11 +174,11 @@ class Transaction(ABC):
 
         :param value: Valor associado a essa transação.
         """
-        self.value = value
+        self.value: float = value
 
-        self.id_ = 0
-        self.date = ""
-        self.succeded = False
+        self.id_: int = 0
+        self.date: str = ""
+        self.succeded: bool = False
 
     @abstractmethod
     def make(self):
@@ -224,7 +224,7 @@ class Draw(Transaction):
         super().__init__(value)
         self.withdrawer: Person = withdrawer
         self.bank: Bank = origin_bank
-        self.has_limit = withdrawer.accounts[origin_bank.name].is_limited
+        self.has_limit: bool = withdrawer.accounts[origin_bank.name].is_limited
 
     def make(self):
         self.succeded = self.withdrawer.accounts[self.bank.name].draw(self.value, has_time_limit=self.has_limit)
@@ -252,7 +252,7 @@ class Transfer(Transaction):
 
         self.withdrawer: Person = withdrawer
         self.origin_bank: Bank = origin_bank
-        self.has_limit = withdrawer.accounts[origin_bank.name].is_limited
+        self.has_limit: bool = withdrawer.accounts[origin_bank.name].is_limited
 
         self.receiver: Person = depositor
         self.target_bank: Bank = target_bank
@@ -287,11 +287,11 @@ class Bank:
         :param fee: Taxa, opcional, que pode ser usada sobre as operações.
         """
 
-        self.name = name.strip()
+        self.name: str = name.strip()
         self.clients: dict[int, Person] = {}
-        self.clients_ammount = 0
-        self.vault = 10000
-        self.fee = fee
+        self.vault: float = 10000
+        self.fee: float = fee
+        self.clients_ammount: int = 0
 
     def open_account(self, client: Person):
         """
@@ -338,7 +338,7 @@ class System(Interface):
         super().__init__(root)
 
         self.data: SysData = SysData()
-        self.current_form: InputForm = InputForm(root, "", {}, None)
+        self.current_form: InputForm | None = None
         self.has_save: bool = False
         self.save_name: str = ""
 

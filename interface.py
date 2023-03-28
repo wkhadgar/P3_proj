@@ -266,11 +266,12 @@ class Button:
 
 class AbstractState(ABC):
     def __init__(self, root, title: str, description: str = "", buttons: list["Button"] = None):
-        self.root = root
-        self.title = title
-        self.description = description
+        self.root: tk.Tk | tk.Toplevel = root
+        self.title: str = title
+        self.description: str = description
         self.buttons: list["Button"] = buttons
-        self.back_button = None
+        self.back_button: Button | None = None
+        self.image: tk.PhotoImage | None = None
 
     @abstractmethod
     def show_state(self):
@@ -288,6 +289,9 @@ class State(AbstractState):
     def set_back_button(self, label: str, command):
         self.back_button = Button(label, command)
 
+    def set_image(self, path: str):
+        self.image = tk.PhotoImage(file=path)
+
     def create_widgets(self):
         # Create title label
         title_label = ttk.Label(self.root, text=self.title, font=("Segoe UI", 16))
@@ -304,7 +308,8 @@ class State(AbstractState):
 
         # Create back button
         if self.back_button is not None:
-            back_button_widget = ttk.Button(self.root, text=self.back_button.label, command=self.back_button.command)
+            back_button_widget = ttk.Button(self.root, text=self.back_button.label,
+                                            command=self.back_button.command)
             back_button_widget.pack(pady=5)
 
     def show_state(self):
