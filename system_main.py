@@ -16,7 +16,7 @@ main_menu_buttons = [
     Button("Remoção", lambda: remove_menu_state.show_state()),
     Button("Financeiro", lambda: finances_menu_state.show_state()),
     Button("Mais", lambda: info_menu_state.show_state()),
-    Button("Encerrar", lambda: root.destroy()),
+    Button("Encerrar", root.destroy),
 ]
 main_menu_state = sys.add_state("SUB", "Bem vindo ao SUB - Sistema Único de Bancos. O que deseja fazer?",
                                 main_menu_buttons)
