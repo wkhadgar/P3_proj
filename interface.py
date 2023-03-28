@@ -2,7 +2,6 @@ from __future__ import annotations
 import tkinter as tk
 import tkinter.messagebox
 from tkinter import ttk
-from typing import Dict, TypeVar
 from abc import ABC, abstractmethod
 
 
@@ -98,7 +97,7 @@ class InputForm:
             self.callback()
         try:
             self.root.destroy()
-        except:
+        except tk.TclError:
             pass
 
 

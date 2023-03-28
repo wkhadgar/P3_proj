@@ -61,6 +61,6 @@ info_menu_state = sys.add_state("Mais", "O que deseja obter?", info_menu_buttons
 sys.run()
 print("\n\n\n\n\n")
 
-#Test IDs
-#901190711
-#916406097
+# Test IDs
+# 901190711
+# 916406097

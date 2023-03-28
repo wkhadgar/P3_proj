@@ -70,7 +70,7 @@ class Account:
     def __init__(self, wallet_amount: float):
         """
         Descreve uma conta.
-        A conta também contém um score agregado internamente.
+        A conta também contém uma pontuação agregada internamente.
 
         :param wallet_amount: Valor que a conta guarda no momento.
         """
