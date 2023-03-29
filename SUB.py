@@ -113,11 +113,12 @@ class Account:
 
             if has_time_limit:
                 if ((now < limit_end_time) or (now > limit_start_time)) and (amount > self.max_night_draw):
-                    print(f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
+                    popup_error(
+                        f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
                     return False
 
                 if amount > self.max_day_draw:
-                    print(
+                    popup_error(
                             f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
                             f"inferior ao valor desejado.")
                     return False
@@ -203,6 +204,9 @@ class Deposit(Transaction):
         self.bank: Bank = target_bank
 
     def make(self):
+        now = datetime.now()
+        self.date = now.strftime("%d/%m/%Y %H:%M:%S")
+
         self.depositor.accounts[self.bank.name].deposit(self.value)
         self.bank.vault += self.value
         self.succeded = True
@@ -219,7 +223,7 @@ class Draw(Transaction):
         :param origin_bank: Banco onde essa pessoa deseja realizar a operação.
         """
 
-        if value > 0:
+        if value < 0:
             value = 0
         super().__init__(value)
         self.withdrawer: Person = withdrawer
@@ -229,6 +233,9 @@ class Draw(Transaction):
     def make(self):
         self.succeded = self.withdrawer.accounts[self.bank.name].draw(self.value, has_time_limit=self.has_limit)
         if self.succeded:
+            now = datetime.now()
+            self.date = now.strftime("%d/%m/%Y %H:%M:%S")
+
             self.bank.vault -= self.value
 
         return self.succeded
