@@ -695,7 +695,8 @@ class System(Interface):
         window.geometry("400x700")
 
         if people_amount != 0:
-            left_frame = ScrollableFrame(window, title="Pessoas cadastradas:")
+            ending = '' if people_amount == 1 else 's'
+            left_frame = ScrollableFrame(window, title=f"{people_amount} pessoa{ending} cadastrada{ending}:")
             left_frame.pack(side="top", fill="both", expand=True)
 
             for item in p_info:
@@ -706,7 +707,8 @@ class System(Interface):
             left_frame.pack(side="top", fill="both", expand=True)
 
         if bank_amount != 0:
-            right_frame = ScrollableFrame(window, title="Bancos cadastrados:")
+            ending = '' if bank_amount == 1 else 's'
+            right_frame = ScrollableFrame(window, title=f"{bank_amount} banco{ending} cadastrado{ending}:")
             right_frame.pack(side="top", fill="both", expand=True)
 
             for item in b_info:
