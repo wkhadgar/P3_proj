@@ -95,7 +95,7 @@ class Account:
         popup_success_info(f"Depositado R$ {amount:.2f} na conta, o novo total é de R${self.balance:.2f}")
         return self.balance
 
-    def draw(self, amount: float, *, has_time_limit=False):
+    def draw(self, amount: float, *, has_time_limit=True):
         """
         Tenta sacar da conta o valor dado.
 
@@ -114,7 +114,7 @@ class Account:
             if has_time_limit:
                 if ((now < limit_end_time) or (now > limit_start_time)) and (amount > self.max_night_draw):
                     popup_error(
-                        f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
+                            f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
                     return False
 
                 if amount > self.max_day_draw:
@@ -180,6 +180,7 @@ class Transaction(ABC):
         self.id_: int = 0
         self.date: str = ""
         self.succeded: bool = False
+        self.info = ""
 
     @abstractmethod
     def make(self):
@@ -202,6 +203,10 @@ class Deposit(Transaction):
 
         self.depositor: Person = depositor
         self.bank: Bank = target_bank
+        self.info = (f"\tTipo: Depósito",
+                     f"\tDepositante: {self.depositor.name}",
+                     f"\tCPF: {cpf_string(self.depositor.cpf)}",
+                     f"\tBanco do depósito: {self.bank.name}")
 
     def make(self):
         now = datetime.now()
@@ -229,6 +234,10 @@ class Draw(Transaction):
         self.withdrawer: Person = withdrawer
         self.bank: Bank = origin_bank
         self.has_limit: bool = withdrawer.accounts[origin_bank.name].is_limited
+        self.info = (f"\tTipo: Saque",
+                     f"\tSacador: {self.withdrawer.name}",
+                     f"\tCPF: {cpf_string(self.withdrawer.cpf)}",
+                     f"\tBanco do saque: {self.bank.name}")
 
     def make(self):
         self.succeded = self.withdrawer.accounts[self.bank.name].draw(self.value, has_time_limit=self.has_limit)
@@ -263,6 +272,15 @@ class Transfer(Transaction):
 
         self.receiver: Person = depositor
         self.target_bank: Bank = target_bank
+        self.info = (f"\tTipo: Transferência",
+                     "\tOrigem:",
+                     f"\t\tNome: {self.withdrawer.name}",
+                     f"\t\tCPF: {cpf_string(self.withdrawer.cpf)}",
+                     f"\t\tBanco: {self.origin_bank.name}",
+                     "\tDestino:",
+                     f"\t\tNome: {self.receiver.name}",
+                     f"\t\tCPF: {cpf_string(self.receiver.cpf)}",
+                     f"\t\tBanco: {self.target_bank.name}")
 
     def make(self):
         now = datetime.now()
@@ -375,6 +393,7 @@ class System(Interface):
             new_id = random.randint(0, 999_999_999)
 
         self.data.transactions[new_id] = transaction
+        self.root.clipboard_clear()
         self.root.clipboard_append(str(new_id))
         return new_id
 
@@ -647,28 +666,7 @@ class System(Interface):
                             f'\tData da operação: {this_transaction.date if this_transaction.date != "" else "---"}',
                             f"\tValor da operação: R${this_transaction.value:.2f}"]
 
-        if isinstance(this_transaction, Deposit):
-            transaction_info.extend((f"\tTipo: Depósito",
-                                     f"\tDepositante: {this_transaction.depositor.name}",
-                                     f"\tCPF: {cpf_string(this_transaction.depositor.cpf)}",
-                                     f"\tBanco do depósito: {this_transaction.bank.name}"))
-
-        if isinstance(this_transaction, Draw):
-            transaction_info.extend((f"\tTipo: Saque",
-                                     f"\tSacador: {this_transaction.withdrawer.name}",
-                                     f"\tCPF: {cpf_string(this_transaction.withdrawer.cpf)}",
-                                     f"\tBanco do saque: {this_transaction.bank.name}"))
-
-        if isinstance(this_transaction, Transfer):
-            transaction_info.extend((f"\tTipo: Transferência",
-                                     "\tOrigem:",
-                                     f"\t\tNome: {this_transaction.withdrawer.name}",
-                                     f"\t\tCPF: {cpf_string(this_transaction.withdrawer.cpf)}",
-                                     f"\t\tBanco: {this_transaction.origin_bank.name}",
-                                     "\tDestino:",
-                                     f"\t\tNome: {this_transaction.receiver.name}",
-                                     f"\t\tCPF: {cpf_string(this_transaction.receiver.cpf)}",
-                                     f"\t\tBanco: {this_transaction.target_bank.name}"))
+        transaction_info.extend(this_transaction.info)
 
         for item in transaction_info:
             label = tk.Label(canvas, text=item)

@@ -121,7 +121,7 @@ class CheckPersonForm(InputForm):
         super().__init__(root, "Pesquisa de Pessoa", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Pesquisar")
 
 
 class RemovePersonForm(InputForm):
@@ -133,7 +133,7 @@ class RemovePersonForm(InputForm):
         super().__init__(root, "Remoção de Pessoa", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Remover")
 
 
 class AddBankForm(InputForm):
@@ -156,7 +156,7 @@ class RemoveBankForm(InputForm):
         super().__init__(root, "Remoção de Banco", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Remover")
 
 
 class OpenAccountForm(InputForm):
@@ -168,7 +168,7 @@ class OpenAccountForm(InputForm):
         super().__init__(root, "Abertura de Conta", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Abrir")
 
 
 class CloseAccountForm(InputForm):
@@ -180,7 +180,7 @@ class CloseAccountForm(InputForm):
         super().__init__(root, "Encerramento de Conta", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets("Fechar")
 
 
 class DepositForm(InputForm):
@@ -193,7 +193,7 @@ class DepositForm(InputForm):
         super().__init__(root, "Depósito em conta", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Depositar")
 
 
 class DrawForm(InputForm):
@@ -206,7 +206,7 @@ class DrawForm(InputForm):
         super().__init__(root, "Saque em conta", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Sacar")
 
 
 class TransferForm(InputForm):
@@ -221,7 +221,7 @@ class TransferForm(InputForm):
         super().__init__(root, "Transferência entre contas", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Transferir")
 
 
 class TransactionSearchForm(InputForm):
@@ -232,7 +232,7 @@ class TransactionSearchForm(InputForm):
         super().__init__(root, "Pesquisa de Transação", fields, callback)
 
     def show_form(self):
-        self.create_widgets()
+        self.create_widgets(save_txt="Pesquisar")
 
 
 class ScrollableFrame(tk.Frame):
