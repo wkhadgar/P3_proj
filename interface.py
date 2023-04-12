@@ -51,7 +51,7 @@ class ErrorPopup(PopUp):
 
 class InputForm:
     def __init__(self, root: tk.Toplevel | tk.Tk, title: str, fields: dict, callback):
-        self.root: tk.Tk = root
+        self.root: tk.Toplevel | tk.Tk = root
         self.title: str = title
         self.fields: dict[str, str] = fields
         self.inputs: list[tk.Entry] = []
@@ -61,6 +61,7 @@ class InputForm:
 
     def create_widgets(self, save_txt: str = "Salvar"):
         self.root.title(self.title.split(' ')[0])
+
         if self.icon_path:
             self.root.iconbitmap(self.icon_path)
 
@@ -84,6 +85,7 @@ class InputForm:
         save_button.pack(pady=10)
 
         self.inputs[0].focus()
+        self.root.update()
 
     @abstractmethod
     def show_form(self):

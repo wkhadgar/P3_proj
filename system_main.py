@@ -10,6 +10,8 @@ style.theme_use("clam")  # ou "alt", "default", e "classic"
 
 sys = sub.System(root)
 
+# TODO Criar o sub-estado de halt com transição automática.
+
 # Montagem do menu principal
 main_menu_buttons = [
     Button("Cadastro", lambda: signup_menu_state.show_state()),

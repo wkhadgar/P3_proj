@@ -674,7 +674,7 @@ class System(Interface):
 
     def __make_transfer(self):
         try:
-            origin_id, origin_bank, target_id, target_bank, value = self.current_form.get_fields()
+            origin_id, origin_bank, value, target_id, target_bank = self.current_form.get_fields()
         except ValueError:
             popup_error("Houve um erro interno do sistema.\nTente novamente.")
             return
