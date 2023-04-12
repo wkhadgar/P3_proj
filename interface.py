@@ -53,7 +53,7 @@ class InputForm:
     def __init__(self, root: tk.Toplevel | tk.Tk, title: str, fields: dict, callback):
         self.root: tk.Tk = root
         self.title: str = title
-        self.fields: dict = fields
+        self.fields: dict[str, str] = fields
         self.inputs: list[tk.Entry] = []
         self.is_filled: bool = False
         self.icon_path: str = ""
@@ -89,16 +89,21 @@ class InputForm:
     def show_form(self):
         raise NotImplementedError("O método deve estar implementado na classe herdeira.")
 
+    def get_fields(self) -> tuple[str]:
+        return tuple(self.fields.values())
+
     def save_inputs(self):
         for i, input_field in enumerate(list(self.fields.keys())):
             self.fields[input_field] = self.inputs[i].get()
         self.is_filled = True
         if self.callback is not None:
             self.callback()
+
         try:
             self.root.destroy()
+            return 0
         except tk.TclError:
-            pass
+            return -1
 
 
 class AddPersonForm(InputForm):
@@ -111,17 +116,6 @@ class AddPersonForm(InputForm):
 
     def show_form(self):
         self.create_widgets()
-
-
-class CheckPersonForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "CPF:": "",
-        }
-        super().__init__(root, "Pesquisa de Pessoa", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Pesquisar")
 
 
 class RemovePersonForm(InputForm):
@@ -157,6 +151,17 @@ class RemoveBankForm(InputForm):
 
     def show_form(self):
         self.create_widgets(save_txt="Remover")
+
+
+class CheckPersonForm(InputForm):
+    def __init__(self, root, callback=None):
+        fields = {
+            "CPF:": "",
+        }
+        super().__init__(root, "Pesquisa de Pessoa", fields, callback)
+
+    def show_form(self):
+        self.create_widgets(save_txt="Pesquisar")
 
 
 class OpenAccountForm(InputForm):
