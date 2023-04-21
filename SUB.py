@@ -987,12 +987,12 @@ class System(Interface):
         Deposit(tk.Toplevel(), self.data).show_form()
 
     def screen_make_draw(self):
-        drf = DrawForm(tk.Toplevel(), self.__make_draw, list(self.data.banks.keys()))
+        drf = Draw(tk.Toplevel(), self.data)
         drf.show_form()
         self.current_form = drf
 
     def screen_make_transfer(self):
-        trf = TransferForm(tk.Toplevel(), self.__make_transfer, list(self.data.banks.keys()))
+        trf = Transfer(tk.Toplevel(), self.data)
         trf.show_form()
         self.current_form = trf
 
