@@ -49,199 +49,6 @@ class ErrorPopup(PopUp):
         self.boolean = tk.messagebox.showerror(self.title, self.description + "\n" + self.alt_description)
 
 
-class InputForm:
-    def __init__(self, root: tk.Toplevel | tk.Tk, title: str, fields: dict, callback):
-        self.root: tk.Toplevel | tk.Tk = root
-        self.title: str = title
-        self.fields: dict[str, str] = fields
-        self.inputs: list[tk.Entry] = []
-        self.is_filled: bool = False
-        self.icon_path: str = ""
-        self.callback = callback
-
-    def create_widgets(self, save_txt: str = "Salvar"):
-        self.root.title(self.title.split(' ')[0])
-
-        if self.icon_path:
-            self.root.iconbitmap(self.icon_path)
-
-        title_label = ttk.Label(self.root, text=self.title, font=("Arial", 16))
-        title_label.pack(pady=10)
-
-        for field_name, field_value in self.fields.items():
-            frame = ttk.Frame(self.root)
-            frame.pack(pady=5)
-            label = ttk.Label(frame, text=field_name, font=("Arial", 12))
-            label.pack(side="left", padx=10)
-            if isinstance(field_value, list):
-                input_field = ttk.Combobox(frame, font=("Arial", 12), values=field_value, state="readonly")
-            else:
-                input_field = ttk.Entry(frame, font=("Arial", 12))
-            input_field.pack(side="right", padx=10)
-            self.inputs.append(input_field)
-
-        # Create save button
-        save_button = ttk.Button(self.root, text=save_txt, command=self.save_inputs)
-        save_button.pack(pady=10)
-
-        self.inputs[0].focus()
-        self.root.update()
-
-    @abstractmethod
-    def show_form(self):
-        raise NotImplementedError("O método deve estar implementado na classe herdeira.")
-
-    def get_fields(self) -> tuple[str]:
-        return tuple(self.fields.values())
-
-    def save_inputs(self):
-        for i, input_field in enumerate(list(self.fields.keys())):
-            self.fields[input_field] = self.inputs[i].get()
-        self.is_filled = True
-        if self.callback is not None:
-            self.callback()
-
-        try:
-            self.root.destroy()
-            return 0
-        except tk.TclError:
-            return -1
-
-
-class AddPersonForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "Nome:": "",
-            "CPF:": "",
-        }
-        super().__init__(root, "Cadastro de Pessoa", fields, callback)
-
-    def show_form(self):
-        self.create_widgets()
-
-
-class RemovePersonForm(InputForm):
-    def __init__(self, root, callback=None, names: list = None):
-        fields = {
-            "Pessoa:": names,
-            "CPF:": "",
-        }
-        super().__init__(root, "Remoção de Pessoa", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Remover")
-
-
-class AddBankForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "Nome:": "",
-            "Taxa: (%)": "0"
-        }
-        super().__init__(root, "Cadastro de Banco", fields, callback)
-
-    def show_form(self):
-        self.create_widgets()
-
-
-class RemoveBankForm(InputForm):
-    def __init__(self, root, callback=None, banks: list = None):
-        fields = {
-            "Banco:": banks,
-        }
-        super().__init__(root, "Remoção de Banco", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Remover")
-
-
-class CheckPersonForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "CPF:": "",
-        }
-        super().__init__(root, "Pesquisa de Pessoa", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Pesquisar")
-
-
-class OpenAccountForm(InputForm):
-    def __init__(self, root, callback=None, banks: list = None):
-        fields = {
-            "CPF:": "",
-            "Banco:": banks
-        }
-        super().__init__(root, "Abertura de Conta", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Abrir")
-
-
-class CloseAccountForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "CPF:": "",
-            "Banco:": "",
-        }
-        super().__init__(root, "Encerramento de Conta", fields, callback)
-
-    def show_form(self):
-        self.create_widgets("Fechar")
-
-
-class DepositForm(InputForm):
-    def __init__(self, root, callback=None, banks: list = None):
-        fields = {
-            "CPF:": "",
-            "Banco:": banks,
-            "Valor: R$": "",
-        }
-        super().__init__(root, "Depósito em conta", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Depositar")
-
-
-class DrawForm(InputForm):
-    def __init__(self, root, callback=None, banks: list = None):
-        fields = {
-            "CPF:": "",
-            "Banco:": banks,
-            "Valor: R$": "",
-        }
-        super().__init__(root, "Saque em conta", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Sacar")
-
-
-class TransferForm(InputForm):
-    def __init__(self, root, callback=None, banks: list = None):
-        fields = {
-            "🡐 CPF:": "",
-            "🡐 Banco:": banks,
-            "🡓 Valor: R$": "",
-            "🡒 CPF:": "",
-            "🡒 Banco:": banks,
-        }
-        super().__init__(root, "Transferência entre contas", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Transferir")
-
-
-class TransactionSearchForm(InputForm):
-    def __init__(self, root, callback=None):
-        fields = {
-            "ID #:": ""
-        }
-        super().__init__(root, "Pesquisa de Transação", fields, callback)
-
-    def show_form(self):
-        self.create_widgets(save_txt="Pesquisar")
-
-
 class ScrollableFrame(tk.Frame):
     def __init__(self, parent, title="", *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -340,3 +147,56 @@ class Interface:
     def run(self):
         self.states[0].show_state()
         self.root.mainloop()
+
+
+def popup_retry(details: str = "") -> bool:
+    """
+    Emite um pop-up de nova tentativa.
+
+    :param details: Detalhes do pop-up.
+    :return bool: Se a pessoa deseja ou não tentar novamente.
+    """
+
+    rcb = RetryCancelPopup(details)
+    rcb.show()
+    return rcb.boolean
+
+
+def popup_info(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de informação do sistema.
+
+    :param details: Detalhes da informação.
+    :param funnify: Deixar a informação divertida.
+    """
+
+    rcb = InfoPopup("Operação realizada com sucesso! \nContinue um bom servidor!" if funnify else "", details)
+    rcb.show()
+
+
+def popup_error(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de erro do sistema.
+
+    :param details: Detalhes do erro.
+    :param funnify: Deixar o erro divertido.
+    """
+
+    err = ErrorPopup("Um erro ocorreu do lado do sistema. Não pedimos perdão.\nSeus créditos socias "
+                     "foram deduzidos em 100 pontos. \n(Use o sistema de forma a não ocorrerem falhas)" if funnify
+                     else "", details)
+    err.show()
+
+
+def popup_warning(details: str = "", funnify: bool = False):
+    """
+    Emite um pop-up de aviso do sistema.
+
+    :param details: Detalhes do aviso.
+    :param funnify: Deixar o aviso divertido.
+    """
+
+    wrn = WarningPopup("Um erro ocorreu, mas não foi do meu lado. Verifique os dados inseridos.\nPor sua "
+                       "incopetencia seus créditos socias foram deduzidos em 700 pontos. (Erros de servidores são "
+                       "punidos com pena máxima. Não os cometa novamente.)" if funnify else "", details)
+    wrn.show()
