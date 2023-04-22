@@ -167,7 +167,7 @@ class DepositAct(Transaction):
 
 
 class DrawAct(Transaction):
-    def __init__(self, value: float, withdrawer: Person, origin_bank: Bank):
+    def __init__(self, value: float, withdrawer: Person, origin_bank: str):
         """
         Descreve um saque.
 
@@ -179,27 +179,29 @@ class DrawAct(Transaction):
         if value < 0:
             value = 0
         super().__init__(value)
-        self.withdrawer: Person = withdrawer
-        self.bank: Bank = origin_bank
-        self.has_limit: bool = withdrawer.accounts[origin_bank.name].is_limited
+
+        try:
+            self.withdrawer_acc: Account = withdrawer.accounts[origin_bank]
+        except KeyError:
+            raise AccountNonExistent
+
+        self.bank: str = origin_bank
+        self.has_limit: bool = self.withdrawer_acc.is_limited
         self.info = (f"\tTipo: Saque",
-                     f"\tSacador: {self.withdrawer.name}",
-                     f"\tCPF: {cpf_string(self.withdrawer.cpf)}",
-                     f"\tBanco do saque: {self.bank.name}")
+                     f"\tSacador: {withdrawer.name}",
+                     f"\tCPF: {cpf_string(withdrawer.cpf)}",
+                     f"\tBanco do saque: {origin_bank}")
 
     def make(self):
-        self.succeded = self.withdrawer.accounts[self.bank.name].draw(self.value, has_time_limit=self.has_limit)
+        self.succeded = self.withdrawer_acc.draw(self.value, has_time_limit=self.has_limit)
         if self.succeded:
             now = datetime.now()
             self.date = now.strftime("%d/%m/%Y %H:%M:%S")
-
-            self.bank.vault -= self.value
-
         return self.succeded
 
 
 class TransferAct(Transaction):
-    def __init__(self, value: float, withdrawer: Person, origin_bank: Bank, depositor: Person, target_bank: Bank):
+    def __init__(self, value: float, withdrawer: Person, origin_bank: str, depositor: Person, target_bank: str, fee=0):
         """
         É uma forma de transação de retirada e depósito em sequência, tratada como transferência.
         Cada transferência contém um identificador aleatório e uma data atualizável que pode ser associada a sua
@@ -214,21 +216,27 @@ class TransferAct(Transaction):
 
         super().__init__(value)
 
-        self.withdrawer: Person = withdrawer
-        self.origin_bank: Bank = origin_bank
-        self.has_limit: bool = withdrawer.accounts[origin_bank.name].is_limited
+        try:
+            self.withdrawer_acc: Account = withdrawer.accounts[origin_bank]
+            self.receiver_acc: Account = depositor.accounts[target_bank]
+        except KeyError:
+            raise AccountNonExistent
 
-        self.receiver: Person = depositor
-        self.target_bank: Bank = target_bank
+        self.origin_bank: str = origin_bank
+        self.target_bank: str = target_bank
+
+        self.has_limit: bool = self.withdrawer_acc.is_limited
+        self.fee = fee
+
         self.info = (f"\tTipo: Transferência",
                      "\tOrigem:",
-                     f"\t\tNome: {self.withdrawer.name}",
-                     f"\t\tCPF: {cpf_string(self.withdrawer.cpf)}",
-                     f"\t\tBanco: {self.origin_bank.name}",
+                     f"\t\tNome: {withdrawer.name}",
+                     f"\t\tCPF: {cpf_string(withdrawer.cpf)}",
+                     f"\t\tBanco: {origin_bank}",
                      "\tDestino:",
-                     f"\t\tNome: {self.receiver.name}",
-                     f"\t\tCPF: {cpf_string(self.receiver.cpf)}",
-                     f"\t\tBanco: {self.target_bank.name}")
+                     f"\t\tNome: {depositor.name}",
+                     f"\t\tCPF: {cpf_string(depositor.cpf)}",
+                     f"\t\tBanco: {target_bank}")
 
     def make(self):
         now = datetime.now()
@@ -237,13 +245,11 @@ class TransferAct(Transaction):
         taxed_value = self.value
 
         if self.origin_bank != self.target_bank:
-            taxed_value += (self.origin_bank.fee * self.value)
+            taxed_value += (self.fee * self.value)
 
-        self.succeded = self.withdrawer.accounts[self.origin_bank.name].draw(taxed_value, has_time_limit=self.has_limit)
+        self.succeded = self.withdrawer_acc.draw(taxed_value, has_time_limit=self.has_limit)
         if self.succeded:
-            self.origin_bank.vault -= self.value
-            self.target_bank.vault += self.value
-            self.receiver.accounts[self.target_bank.name].deposit(self.value)
+            self.receiver_acc.deposit(self.value)
 
         return self.succeded
 
@@ -710,17 +716,16 @@ class Deposit(InputForm):
 
         try:
             value = float(value)
-        except ValueError:
-            popup_warning("Valor inválido!")
-            return
-
-        try:
             new_dpt = DepositAct(value, person, bank.name)
+        except ValueError:
+            popup_warning("Valor inválido.")
+            return
         except AccountNonExistent:
             popup_warning(f"{person.name} não possui conta em {bank}.")
             return
 
         new_dpt.make()
+        bank.vault += value
         new_dpt.id_ = self.data_root.add_transaction(new_dpt)
         self.window_root.clipboard_clear()
         self.window_root.clipboard_append(str(new_dpt.id_))
@@ -743,33 +748,132 @@ class Draw(InputForm):
         self.create_widgets(save_txt="Sacar")
 
     def make(self):
-        pass
+        try:
+            cpf, bank, value = self.get_fields()
+            cpf = int(cpf)
+            withdrawer = self.data_root.get_people(cpf)
+            bank = self.data_root.get_banks(bank)
+        except EmptyField:
+            popup_warning("Preencha os dados corretamente!")
+        except ValueError:
+            popup_warning("CPF inválido!")
+            return
+        except PersonNonExistent:
+            popup_warning("A pessoa com o CPF informado não existe no sistema.")
+            return
+
+        try:
+            value = float(value)
+            new_drw = DrawAct(value, withdrawer, bank.name)
+        except ValueError:
+            popup_warning("Valor inválido!")
+            return
+        except AccountNonExistent:
+            popup_warning(f"{withdrawer.name} não possui conta em {bank.name}.")
+            return
+
+        if not new_drw.make():
+            popup_error("Não foi possível realizar o saque.")
+
+        new_drw.id_ = self.data_root.add_transaction(new_drw)
+        bank.vault -= value
+        self.window_root.clipboard_clear()
+        self.window_root.clipboard_append(str(new_drw.id_))
+        save_sys(self.data_root)
+        popup_info(f"{withdrawer.name} realizou uma operação de saque em {bank.name}\n"
+                   f"ID: #{new_drw.id_:09d}")
 
 
 class Transfer(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "🡐 CPF:": "",
-            "🡐 Banco:": banks,
+            "🡐 Banco:": list(self.data_root.get_banks().keys()),
             "🡓 Valor: R$": "",
             "🡒 CPF:": "",
-            "🡒 Banco:": banks,
+            "🡒 Banco:": list(self.data_root.get_banks().keys()),
         }
-        super().__init__(root, "Transferência entre contas", fields, callback)
+        super().__init__(window_root, data_root, "Transferência entre contas", fields, self.make)
 
     def show_form(self):
         self.create_widgets(save_txt="Transferir")
 
+    def make(self):
+        try:
+            origin_id, origin_bank, value, target_id, target_bank = self.get_fields()
+            origin_id = int(origin_id)
+            target_id = int(target_id)
+            withdrawer = self.data_root.get_people(origin_id)
+            depositor = self.data_root.get_people(target_id)
+            origin_bank = self.data_root.get_banks(origin_bank)
+            target_bank = self.data_root.get_banks(target_bank)
+        except EmptyField:
+            popup_warning("Preencha os dados corretamente!")
+            return
+        except ValueError:
+            popup_warning("Confira os CPF's informados e tente novamente.")
+            return
+        except PersonNonExistent:
+            popup_warning("A pessoa com o CPF informado não existe no sistema.")
+            return
 
-class TransactionSearchForm(InputForm):
+        try:
+            value = float(value)
+            new_trf = TransferAct(value, withdrawer, origin_bank.name,
+                                  depositor, target_bank.name)
+        except ValueError:
+            popup_warning("Valor inválido")
+            return
+        except AccountNonExistent:
+            popup_warning("Confira as contas informadas e tente novamente.")
+            return
+
+        if not new_trf.make():
+            popup_error(f"Não foi possível realizar a operação.")
+
+        new_trf.id_ = self.data_root.add_transaction(new_trf)
+
+        save_sys(self.data_root)
+        popup_info(
+                f"\n\nO sistema automatizou a transferência: {withdrawer.name} em {origin_bank.name} "
+                f"para {depositor.name} em {target_bank.name}\n"
+                f"ID: #{new_trf.id_:09d}")
+
+
+class TransactionSearch(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "ID #:": ""
         }
-        super().__init__(root, "Pesquisa de Transação", fields, callback)
+        super().__init__(window_root, data_root, "Pesquisa de Transação", fields, self.show)
 
     def show_form(self):
         self.create_widgets(save_txt="Pesquisar")
+
+    def show(self):
+        try:
+            tr_id, = self.get_fields()
+            tr_id = int(tr_id)
+        except ValueError:
+            popup_warning("ID inválido.")
+            return
+
+        window = tk.Toplevel()
+        window.title("Dados de Transação")
+        window.geometry("300x300")
+        descr = ttk.Label(window, text=f"Transação #{tr_id}", font=("Arial", 12, "bold"))
+        descr.pack(anchor="n", side="top")
+        canvas = tk.Frame(window)
+
+        transaction_info = self.data_root.get_transaction_info(tr_id)
+
+        for item in transaction_info:
+            label = tk.Label(canvas, text=item)
+            label.pack(side="top", anchor="nw", padx=5)
+
+        canvas.pack(side="top", fill="both", expand=True)
+
+        window.mainloop()
 
 
 class System(Interface):
@@ -782,157 +886,17 @@ class System(Interface):
         super().__init__(root)
 
         self.data: SysData = SysData()
-        self.current_form: InputForm | None = None
-
-    def __make_draw(self):
-        try:
-            cpf, bank, value = self.current_form.get_fields()
-        except ValueError:
-            popup_error("Houve um erro interno do sistema.\nTente novamente.")
-            return
-
-        try:
-            cpf = int(cpf)
-        except ValueError:
-            if popup_retry("CPF inválido. Deseja tentar novamente?"):
-                self.screen_make_draw()
-            return
-
-        try:
-            value = float(value)
-        except ValueError:
-            if popup_retry("Valor inválido. Deseja tentar novamente?"):
-                self.screen_make_draw()
-            return
-
-        try:
-            self.__person_and_account_exists(cpf, bank)
-        except PersonNonExistent:
-            popup_warning("A pessoa com o CPF informado não existe no sistema.")
-            return
-        except AccountNonExistent:
-            popup_warning(f"{self.data.people[cpf].name} não possui conta em {bank}.")
-            return
-
-        new_drw = DrawAct(value, self.data.people[cpf], self.data.banks[bank])
-        if new_drw.make():
-            new_drw.id_ = self.__generate_transaction_id(new_drw)
-
-            self.__save_sys()
-            popup_info(f"{self.data.people[cpf].name} realizou uma operação de saque em {bank}\n"
-                       f"ID: #{new_drw.id_:09d}")
-        else:
-            popup_error("Não foi possível realizar o saque.")
-
-    def __make_transfer(self):
-        try:
-            origin_id, origin_bank, value, target_id, target_bank = self.current_form.get_fields()
-        except ValueError:
-            popup_error("Houve um erro interno do sistema.\nTente novamente.")
-            return
-
-        if origin_bank == "" or target_bank == "":
-            popup_warning("Selecione os bancos!")
-            return
-
-        try:
-            value = float(value)
-        except ValueError:
-            popup_warning("Valor inválido")
-            return
-
-        try:
-            origin_id = int(origin_id)
-        except ValueError:
-            popup_warning("CPF de origem inválido.")
-            return
-
-        try:
-            target_id = int(target_id)
-        except ValueError:
-            popup_warning("CPF de destino inválido.")
-            return
-
-        try:
-            self.__person_and_account_exists(origin_id, origin_bank)
-        except PersonNonExistent:
-            popup_warning("A pessoa com o CPF informado não existe no sistema.")
-            return
-        except AccountNonExistent:
-            popup_warning(f"{self.data.people[origin_id].name} não possui conta em {origin_bank}.")
-            return
-
-        try:
-            self.__person_and_account_exists(target_id, target_bank)
-        except PersonNonExistent:
-            popup_warning("A pessoa com o CPF informado não existe no sistema.")
-            return
-        except AccountNonExistent:
-            popup_warning(f"{self.data.people[target_id].name} não possui conta em {target_bank}.")
-            return
-
-        new_trf = TransferAct(value, self.data.people[origin_id], self.data.banks[origin_bank],
-                              self.data.people[target_id], self.data.banks[target_bank])
-
-        if new_trf.make():
-            new_trf.id_ = self.__generate_transaction_id(new_trf)
-
-            self.__save_sys()
-            popup_info(
-                    f"\n\nO sistema automatizou a transferência: {self.data.people[origin_id].name} em {origin_bank} "
-                    f"para {self.data.people[target_id].name} em {target_bank}\n"
-                    f"ID: #{new_trf.id_:09d}")
-        else:
-            popup_error(f"Não foi possível realizar a operação.")
-
-        return new_trf
-
-    def __show_transaction_info(self):
-        try:
-            tr_id, = self.current_form.get_fields()
-        except ValueError:
-            popup_error("Houve um erro interno do sistema.\nTente novamente.")
-            return
-
-        try:
-            tr_id = int(tr_id)
-        except ValueError:
-            popup_warning("ID inválido.")
-            return
-
-        if tr_id not in list(self.data.transactions.keys()):
-            popup_warning(f"Não existe transação com o ID {tr_id}")
-            return
-
-        this_transaction = self.data.transactions[tr_id]
-
-        window = tk.Toplevel()
-        window.title("Dados de Transação")
-        window.geometry("300x300")
-        descr = ttk.Label(window, text=f"Transação #{tr_id}", font=("Arial", 12, "bold"))
-        descr.pack(anchor="n", side="top")
-        canvas = tk.Frame(window)
-
-        transaction_info = self.data.get_transaction_info(tr_id)
-
-        for item in transaction_info:
-            label = tk.Label(canvas, text=item)
-            label.pack(side="top", anchor="nw", padx=5)
-
-        canvas.pack(side="top", fill="both", expand=True)
-
-        window.mainloop()
 
     def screen_show_status(self):
-        bank_amount = len(self.data.banks)
-        people_amount = len(self.data.people)
+        bank_amount = len(self.data.get_banks())
+        people_amount = len(self.data.get_people())
 
         p_info = []
-        for i, p in enumerate(list(self.data.people.values())):
+        for i, p in enumerate(list(self.data.get_people().values())):
             p_info.append(f"  {i + 1}. {p.name} - CPF: {cpf_string(p.cpf)}")
 
         b_info = []
-        for i, b in enumerate(list(self.data.banks.values())):
+        for i, b in enumerate(list(self.data.get_banks().values())):
             b_info.append(f"  {i + 1}. {b.name} - Taxa de T.E.: {b.fee * 100}%")
 
         window = tk.Toplevel()
@@ -987,9 +951,7 @@ class System(Interface):
         Deposit(tk.Toplevel(), self.data).show_form()
 
     def screen_make_draw(self):
-        drf = Draw(tk.Toplevel(), self.data)
-        drf.show_form()
-        self.current_form = drf
+        Draw(tk.Toplevel(), self.data).show_form()
 
     def screen_make_transfer(self):
         trf = Transfer(tk.Toplevel(), self.data)
@@ -997,10 +959,7 @@ class System(Interface):
         self.current_form = trf
 
     def screen_search_transaction(self):
-
-        stf = TransactionSearchForm(tk.Toplevel(), self.__show_transaction_info)
-        stf.show_form()
-        self.current_form = stf
+        TransactionSearch(tk.Toplevel(), self.data).show_form()
 
     def load_data(self):
         save_path = tkinter.filedialog.askopenfilename(defaultextension='syss', initialdir="/saves",
