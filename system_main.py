@@ -36,24 +36,25 @@ signup_menu_state = sys.add_state("Cadastro", "Qual cadastro deseja realizar?", 
 remove_menu_buttons = [
     Button("Remoção de Pessoa", sys.remove_person),
     Button("Remoção de Banco", sys.remove_bank),
+    Button("Fechamento de conta", sys.close_account),
     Button("Voltar ao menu principal.", main_menu_state.show_state),
 ]
 remove_menu_state = sys.add_state("Remoção", "Qual remoção deseja realizar?", remove_menu_buttons)
 
 # Montagem do menu de finanças
 finances_menu_buttons = [
-    Button("Depósito", sys.screen_make_deposit),
-    Button("Saque", sys.screen_make_draw),
-    Button("Transferência", sys.screen_make_transfer),
+    Button("Depósito", sys.make_deposit),
+    Button("Saque", sys.make_draw),
+    Button("Transferência", sys.make_transfer),
     Button("Voltar ao menu principal.", main_menu_state.show_state),
 ]
 finances_menu_state = sys.add_state("Finanças", "Qual operação deseja realizar?", finances_menu_buttons)
 
 # Montagem do menu de informações
 info_menu_buttons = [
-    Button("Status do Sistema", sys.screen_show_status),
-    Button("Dados de uma Pesssoa", sys.get_person_data),
-    Button("Dados de uma Transação", sys.screen_search_transaction),
+    Button("Status do Sistema", sys.show_status),
+    Button("Dados de uma Pessoa", sys.get_person_data),
+    Button("Dados de uma Transação", sys.search_transaction),
     Button("Carregar um SYS", sys.load_data),
     Button("Voltar ao menu principal.", main_menu_state.show_state),
 ]
@@ -61,4 +62,4 @@ info_menu_state = sys.add_state("Mais", "O que deseja obter?", info_menu_buttons
 
 # Run the interface
 sys.run()
-print("\n\n\n\n\n")
+print("\n"*10)

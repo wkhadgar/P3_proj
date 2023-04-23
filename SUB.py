@@ -14,11 +14,47 @@ class Account:
         :param wallet_amount: Valor que a conta guarda no momento.
         """
 
-        self.balance: float = wallet_amount
-        self.score: float = 100  # Pontuação da conta.
         self.max_day_draw: float = 100_000
         self.max_night_draw: float = self.max_day_draw / 2
         self.is_limited: bool = False
+        self.overdraft_limit: float = 0
+
+        self.__balance: float = wallet_amount
+        self.__score: float = 100  # Pontuação da conta.
+        self.__credit = 0
+
+    def update_overdraft(self, bias: float = 1):
+        self.overdraft_limit = ((self.__score - 100) / 200) * (self.__balance / 10)
+        if self.overdraft_limit > 0:
+            self.overdraft_limit *= bias
+        else:
+            self.overdraft_limit = 0
+
+    def update_credit(self, bias: float = 1):
+        self.__credit = ((self.__score - 50) / 100) * (self.__balance / 5)
+        if self.__credit > 0:
+            self.__credit *= bias
+        else:
+            self.__credit = 0
+
+    def __add_funds(self, amount):
+        self.__balance += amount
+        self.__score += (amount * 0.3) / self.__score
+
+    def __subtract_funds(self, amount):
+        after_balance = self.__balance - amount
+        if -after_balance <= self.overdraft_limit:
+            self.__balance = after_balance
+            self.__score -= (amount * 0.4) / self.__score
+            return True
+
+        return False
+
+    def get_score(self):
+        return self.__score
+
+    def get_balance(self):
+        return self.__balance
 
     def deposit(self, amount):
         """
@@ -27,12 +63,10 @@ class Account:
         :param amount: Valor a ser depositado.
         :return: Valor total da conta.
         """
+        self.__add_funds(amount)
 
-        self.balance += amount
-        self.score += amount * 0.1
-
-        popup_info(f"Depositado R$ {amount:.2f} na conta, o novo total é de R${self.balance:.2f}")
-        return self.balance
+        popup_info(f"Depositado R$ {amount:.2f} na conta, o novo total é de R${self.__balance:.2f}")
+        return self.__balance
 
     def draw(self, amount: float, *, has_time_limit=True):
         """
@@ -43,7 +77,7 @@ class Account:
         :return: True se o valor pode ser retirado, False se não.
         """
 
-        curr = self.balance - amount
+        curr = self.__balance - amount
         if curr >= 0:
 
             now = datetime.now().time()
@@ -62,15 +96,12 @@ class Account:
                             f"inferior ao valor desejado.")
                     return False
 
-            self.balance = curr
-            self.score -= amount * 0.15
-
-            popup_info(f"Sacado R$ {amount:.2f} da conta, o novo total é de R${self.balance:.2f}")
+            popup_info(f"Sacado R$ {amount:.2f} da conta, o novo total é de R${self.__balance:.2f}")
             return True
         else:
             popup_error(
                     f"Não foi possível sacar R$ {amount:.2f}, o valor em conta não é suficiente. (R$"
-                    f"{self.balance:.2f})")
+                    f"{self.__balance:.2f})")
             return False
 
 
@@ -111,6 +142,26 @@ class Person:
             self.accounts.pop(account_bank)
         except KeyError:
             raise AccountNonExistent
+
+    def get_accounts_data(self, bank: str = None):
+        if bank is not None:
+            acc = self.accounts[bank]
+            return {bank: (acc.get_balance(), acc.get_score())}
+
+        values = {}
+        for bnk, acc in self.accounts.items():
+            bnk_balance = acc.get_balance()
+            bnk_score = acc.get_score()
+            values[bnk] = (bnk_balance, bnk_score)
+
+        return values
+
+    def get_global_score(self):
+        scores = [data[1] for data in self.get_accounts_data().values()]
+        mean = 0
+        for scr in scores:
+            mean += scr
+        return (mean / len(scores)) if len(scores) > 0 else 100
 
 
 class Transaction(ABC):
@@ -290,6 +341,22 @@ class Bank:
 
         self.clients.pop(client.cpf).remove_account(self.name)
         self.clients_ammount -= 1
+
+    def enable_credit(self, client: Person):
+        client_acc = client.accounts[self.name]
+        client_score = (client.get_global_score() + 3 * client_acc.get_score()) / 4
+        if 100 < client_score < 1000:
+            client_acc.update_credit(bias=abs(1 - self.fee))
+        elif client_score >= 1000:
+            client_acc.update_credit(1)
+
+    def enable_overdraft(self, client: Person):
+        client_acc = client.accounts[self.name]
+        client_score = client_acc.get_score()
+        if 200 < client_score < 500:
+            client_acc.update_overdraft(bias=abs(1 - self.fee))
+        elif client_score >= 500:
+            client_acc.update_overdraft()
 
 
 class SysData:
@@ -536,7 +603,7 @@ class AddBank(InputForm):
 class RemoveBank(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
-            "Banco:": list(self.data_root.get_banks().keys()),
+            "Banco:": list(data_root.get_banks().keys()),
         }
         super().__init__(window_root, data_root, "Remoção de Banco", fields, self.remove)
 
@@ -586,25 +653,23 @@ class CheckPerson(InputForm):
         window.lift()
 
         person_info = [f"\nInformações:"]
-        mean_scr = 0
         funds = 0
 
-        if len(person.accounts.keys()) > 0:
+        if len(person.accounts) > 0:
             person_info.append(f"\tCPF: {cpf_string(cpf)}\n")
 
-            for acc in list(person.accounts.keys()):
-                bnk_balance = person.accounts[acc].balance
-                bnk_score = person.accounts[acc].score
-                person_info.append(f"\tSaldo no banco {acc}: R${bnk_balance:.2f};  Score relacionado: {bnk_score:.2f}")
+            for bnk, acc in person.get_accounts_data().items():
+                bnk_balance = acc[0]
+                bnk_score = acc[1]
+                person_info.append(f"\tSaldo no banco {bnk}: R${bnk_balance:.2f};  Score relacionado: {bnk_score:.2f}")
 
                 funds += bnk_balance
-                mean_scr += bnk_score
 
-            mean_scr /= len(person.accounts.keys())
+            mean_scr = person.get_global_score()
 
-            person_info.append("\nResumo total:")
-            person_info.append(f"\tFundos totais:  R${funds:.2f}")
-            person_info.append(f"\tMédia de score: {mean_scr:.2f} pontos.")
+            person_info.extend(["\nResumo total:",
+                                f"\tFundos totais:  R${funds:.2f}",
+                                f"\tMédia de score: {mean_scr:.2f} pontos."])
 
             frame = ScrollableFrame(window, f"Dados de {person.name}")
             frame.pack(side="top", fill="both", expand=True)
@@ -622,7 +687,7 @@ class OpenAccount(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "CPF:": "",
-            "Banco:": [bank for bank in self.data_root.get_banks().keys()]
+            "Banco:": [bank for bank in data_root.get_banks().keys()]
         }
         super().__init__(window_root, data_root, "Abertura de Conta", fields, self.open)
 
@@ -656,7 +721,7 @@ class CloseAccount(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "CPF:": "",
-            "Banco:": list(self.data_root.get_banks().keys()),
+            "Banco:": list(data_root.get_banks().keys()),
         }
         super().__init__(window_root, data_root, "Encerramento de Conta", fields, self.close)
 
@@ -678,7 +743,7 @@ class CloseAccount(InputForm):
         except PersonNonExistent:
             popup_warning("O CPF informado não está cadastrado no sistema.")
             return
-        except KeyError | AccountNonExistent:
+        except KeyError or AccountNonExistent:
             popup_warning("O cliente não contém conta neste banco.")
             return
 
@@ -690,7 +755,7 @@ class Deposit(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "CPF:": "",
-            "Banco:": list(self.data_root.get_banks().keys()),
+            "Banco:": list(data_root.get_banks().keys()),
             "Valor: R$": "",
         }
         super().__init__(window_root, data_root, "Depósito em conta", fields, self.make)
@@ -739,7 +804,7 @@ class Draw(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "CPF:": "",
-            "Banco:": list(self.data_root.get_banks().keys()),
+            "Banco:": list(data_root.get_banks().keys()),
             "Valor: R$": "",
         }
         super().__init__(window_root, data_root, "Saque em conta", fields, self.make)
@@ -755,6 +820,7 @@ class Draw(InputForm):
             bank = self.data_root.get_banks(bank)
         except EmptyField:
             popup_warning("Preencha os dados corretamente!")
+            return
         except ValueError:
             popup_warning("CPF inválido!")
             return
@@ -788,10 +854,10 @@ class Transfer(InputForm):
     def __init__(self, window_root: tk.Toplevel, data_root: SysData):
         fields = {
             "🡐 CPF:": "",
-            "🡐 Banco:": list(self.data_root.get_banks().keys()),
+            "🡐 Banco:": list(data_root.get_banks().keys()),
             "🡓 Valor: R$": "",
             "🡒 CPF:": "",
-            "🡒 Banco:": list(self.data_root.get_banks().keys()),
+            "🡒 Banco:": list(data_root.get_banks().keys()),
         }
         super().__init__(window_root, data_root, "Transferência entre contas", fields, self.make)
 
@@ -832,7 +898,10 @@ class Transfer(InputForm):
             popup_error(f"Não foi possível realizar a operação.")
 
         new_trf.id_ = self.data_root.add_transaction(new_trf)
-
+        origin_bank.vault -= value
+        target_bank.vault += value
+        self.window_root.clipboard_clear()
+        self.window_root.clipboard_append(str(new_trf.id_))
         save_sys(self.data_root)
         popup_info(
                 f"\n\nO sistema automatizou a transferência: {withdrawer.name} em {origin_bank.name} "
@@ -876,6 +945,14 @@ class TransactionSearch(InputForm):
         window.mainloop()
 
 
+class AskOverdraft(InputForm):  # TODO
+    pass
+
+
+class AskCredit(InputForm):  # TODO
+    pass
+
+
 class System(Interface):
     def __init__(self, root: tk.Tk):
         """
@@ -887,7 +964,7 @@ class System(Interface):
 
         self.data: SysData = SysData()
 
-    def screen_show_status(self):
+    def show_status(self):
         bank_amount = len(self.data.get_banks())
         people_amount = len(self.data.get_people())
 
@@ -947,18 +1024,21 @@ class System(Interface):
     def open_account(self):
         OpenAccount(tk.Toplevel(), self.data).show_form()
 
-    def screen_make_deposit(self):
+    def close_account(self):
+        CloseAccount(tk.Toplevel(), self.data).show_form()
+
+    def make_deposit(self):
         Deposit(tk.Toplevel(), self.data).show_form()
 
-    def screen_make_draw(self):
+    def make_draw(self):
         Draw(tk.Toplevel(), self.data).show_form()
 
-    def screen_make_transfer(self):
+    def make_transfer(self):
         trf = Transfer(tk.Toplevel(), self.data)
         trf.show_form()
         self.current_form = trf
 
-    def screen_search_transaction(self):
+    def search_transaction(self):
         TransactionSearch(tk.Toplevel(), self.data).show_form()
 
     def load_data(self):
@@ -971,3 +1051,9 @@ class System(Interface):
         else:
             if popup_retry('Selecione um arquivo válido "SAVE_dd-mm-yyyy_hh-mm.syss".'):
                 self.load_data()
+
+    def ask_overdraft(self):
+        pass
+
+    def ask_credit(self):
+        pass
