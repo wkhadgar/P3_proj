@@ -23,8 +23,12 @@ class Account:
         self.__score: float = 100  # Pontuação da conta.
         self.__credit = 0
 
+    def get_max_overdraft(self):
+        return ((self.__score - 100) / 200) * (self.__balance / 10)
+
     def update_overdraft(self, bias: float = 1):
-        self.overdraft_limit = ((self.__score - 100) / 200) * (self.__balance / 10)
+
+        self.overdraft_limit = self.get_max_overdraft()
         if self.overdraft_limit > 0:
             self.overdraft_limit *= bias
         else:
@@ -43,6 +47,10 @@ class Account:
 
     def __subtract_funds(self, amount):
         after_balance = self.__balance - amount
+        if after_balance >= 0:
+            self.__balance = after_balance
+            return True
+
         if -after_balance <= self.overdraft_limit:
             self.__balance = after_balance
             self.__score -= (amount * 0.4) / self.__score
@@ -77,25 +85,23 @@ class Account:
         :return: True se o valor pode ser retirado, False se não.
         """
 
-        curr = self.__balance - amount
-        if curr >= 0:
+        now = datetime.now().time()
+        limit_start_time = datetime.strptime("21:00", "%H:%M").time()
+        limit_end_time = datetime.strptime("4:00", "%H:%M").time()
 
-            now = datetime.now().time()
-            limit_start_time = datetime.strptime("21:00", "%H:%M").time()
-            limit_end_time = datetime.strptime("4:00", "%H:%M").time()
+        if has_time_limit:
+            if ((now < limit_end_time) or (now > limit_start_time)) and (amount > self.max_night_draw):
+                popup_error(
+                        f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
+                return False
 
-            if has_time_limit:
-                if ((now < limit_end_time) or (now > limit_start_time)) and (amount > self.max_night_draw):
-                    popup_error(
-                            f"Não foi possível sacar R${amount:.2f}, sua conta está com limite de saque por horário.")
-                    return False
+            if amount > self.max_day_draw:
+                popup_error(
+                        f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
+                        f"inferior ao valor desejado.")
+                return False
 
-                if amount > self.max_day_draw:
-                    popup_error(
-                            f"Não foi possível sacar R${amount:.2f}, o limite de saque (R${self.max_day_draw:.2f}) é "
-                            f"inferior ao valor desejado.")
-                    return False
-
+        if self.__subtract_funds(amount):
             popup_info(f"Sacado R$ {amount:.2f} da conta, o novo total é de R${self.__balance:.2f}")
             return True
         else:
@@ -945,8 +951,50 @@ class TransactionSearch(InputForm):
         window.mainloop()
 
 
-class AskOverdraft(InputForm):  # TODO
-    pass
+class AskOverdraft(InputForm):
+    def __init__(self, window_root: tk.Toplevel, data_root: SysData):
+        fields = {
+            "CPF:": "",
+            "Banco:": list(data_root.get_banks().keys()),
+            "Cheque Especial: R$": "",
+        }
+        super().__init__(window_root, data_root, "Pedido de cheque especial", fields, self.make)
+
+    def show_form(self):
+        self.create_widgets(save_txt="Pedir")
+
+    def make(self):
+        try:
+            cpf, bank, value = self.get_fields()
+            cpf = int(cpf)
+            asker = self.data_root.get_people(cpf)
+            bank = self.data_root.get_banks(bank)
+        except EmptyField:
+            popup_warning("Preencha os dados corretamente!")
+            return
+        except ValueError:
+            popup_warning("CPF inválido!")
+            return
+        except PersonNonExistent:
+            popup_warning("A pessoa com o CPF informado não existe no sistema.")
+            return
+
+        try:
+            value = float(value)
+            acc = asker.accounts[bank.name]
+            if value < acc.get_max_overdraft():
+                acc.overdraft_limit = value
+            elif acc.get_score() > bank.fee * 4000:
+                acc.update_overdraft(1)
+            elif acc.get_score() > bank.fee * 1000:
+                acc.update_overdraft(0.6)
+        except ValueError:
+            popup_warning("Valor do cheque inválido!")
+            return
+
+        save_sys(self.data_root)
+        popup_info(f"O pedido foi aprovado pelo banco. Agora {asker.name} pode fazer transferências com valor "
+                   f"excedente de até R${value:.2f}")
 
 
 class AskCredit(InputForm):  # TODO
@@ -1028,15 +1076,14 @@ class System(Interface):
         CloseAccount(tk.Toplevel(), self.data).show_form()
 
     def make_deposit(self):
-        Deposit(tk.Toplevel(), self.data).show_form()
+        d_cmd = Deposit(tk.Toplevel(), self.data)
+        d_cmd.show_form()
 
     def make_draw(self):
         Draw(tk.Toplevel(), self.data).show_form()
 
     def make_transfer(self):
-        trf = Transfer(tk.Toplevel(), self.data)
-        trf.show_form()
-        self.current_form = trf
+        Transfer(tk.Toplevel(), self.data).show_form()
 
     def search_transaction(self):
         TransactionSearch(tk.Toplevel(), self.data).show_form()
@@ -1053,7 +1100,4 @@ class System(Interface):
                 self.load_data()
 
     def ask_overdraft(self):
-        pass
-
-    def ask_credit(self):
-        pass
+        AskOverdraft(tk.Toplevel(), self.data).show_form()

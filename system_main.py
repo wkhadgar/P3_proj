@@ -46,6 +46,7 @@ finances_menu_buttons = [
     Button("Depósito", sys.make_deposit),
     Button("Saque", sys.make_draw),
     Button("Transferência", sys.make_transfer),
+    Button("Pedido de crédito", sys.ask_overdraft),
     Button("Voltar ao menu principal.", main_menu_state.show_state),
 ]
 finances_menu_state = sys.add_state("Finanças", "Qual operação deseja realizar?", finances_menu_buttons)
